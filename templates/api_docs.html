@@ -1,0 +1,185 @@
+{% extends "layout.html" %}
+
+{% block title %}API文档{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">API文档</h1>
+
+        <div class="alert alert-info">
+            <h5>关于API</h5>
+            <p class="mb-0">API基地址：<code>{{ request.host_url }}api</code></p>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <!-- 健康检查 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">健康检查</h5>
+            </div>
+            <div class="card-body">
+                <h6>GET /health</h6>
+                <p>检查API服务状态</p>
+
+                <div class="mb-3">
+                    <strong>请求示例：</strong>
+                    <pre class="bg-light p-3"><code>curl -X GET "{{ request.host_url }}api/health"</code></pre>
+                </div>
+
+                <div class="mb-3">
+                    <strong>响应示例：</strong>
+                    <pre class="bg-light p-3"><code>{
+  "success": true,
+  "status": "ok",
+  "timestamp": "2024-01-01T00:00:00Z",
+  "service": "CWhitelist API",
+  "version": "1.0.0"
+}</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- 同步白名单 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">同步白名单</h5>
+            </div>
+            <div class="card-body">
+                <h6>GET /whitelist/sync</h6>
+                <p>获取所有白名单条目</p>
+
+                <div class="mb-3">
+                    <strong>查询参数：</strong>
+                    <ul>
+                        <li><code>only_active</code>: 是否只返回活跃条目（默认: true）</li>
+                    </ul>
+                </div>
+
+                <div class="mb-3">
+                    <strong>请求示例：</strong>
+                    <pre class="bg-light p-3"><code>curl -X GET "{{ request.host_url }}api/whitelist/sync?only_active=true"</code></pre>
+                </div>
+
+                <div class="mb-3">
+                    <strong>响应示例：</strong>
+                    <pre class="bg-light p-3"><code>{
+  "success": true,
+  "message": "Sync successful",
+  "entries": [
+    {
+      "id": "uuid-here",
+      "type": "name",
+      "value": "PlayerName",
+      "description": "VIP Player",
+      "created_by": "admin",
+      "created_at": "2024-01-01T00:00:00Z",
+      "expires_at": null,
+      "is_active": true
+    }
+  ],
+  "total_count": 1,
+  "synced_at": "2024-01-01T00:00:00Z"
+}</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- 添加白名单 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">添加白名单</h5>
+            </div>
+            <div class="card-body">
+                <h6>POST /whitelist/entries</h6>
+                <p>添加新的白名单条目</p>
+
+                <div class="mb-3">
+                    <strong>请求体：</strong>
+                    <pre class="bg-light p-3"><code>{
+  "type": "name",  // 可选值: name, uuid, ip
+  "value": "PlayerName",
+  "description": "VIP Player",  // 可选
+  "created_by": "admin",  // 可选
+  "expires_at": "2024-12-31T23:59:59Z",  // 可选，ISO 8601格式
+  "is_active": true  // 可选，默认: true
+}</code></pre>
+                </div>
+
+                <div class="mb-3">
+                    <strong>请求示例：</strong>
+                    <pre class="bg-light p-3"><code>curl -X POST "{{ request.host_url }}api/whitelist/entries" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "name",
+    "value": "PlayerName",
+    "description": "VIP Player"
+  }'</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- 删除白名单 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">删除白名单</h5>
+            </div>
+            <div class="card-body">
+                <h6>DELETE /whitelist/entries/&lt;type&gt;/&lt;value&gt;</h6>
+                <p>删除指定的白名单条目</p>
+
+                <div class="mb-3">
+                    <strong>路径参数：</strong>
+                    <ul>
+                        <li><code>type</code>: 条目类型（name, uuid, ip）</li>
+                        <li><code>value</code>: 条目值</li>
+                    </ul>
+                </div>
+
+                <div class="mb-3">
+                    <strong>请求示例：</strong>
+                    <pre class="bg-light p-3"><code>curl -X DELETE "{{ request.host_url }}api/whitelist/entries/name/PlayerName"</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- 记录登录 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">记录登录事件</h5>
+            </div>
+            <div class="card-body">
+                <h6>POST /login/log</h6>
+                <p>记录玩家登录事件</p>
+
+                <div class="mb-3">
+                    <strong>请求体：</strong>
+                    <pre class="bg-light p-3"><code>{
+  "player_name": "PlayerName",
+  "player_uuid": "uuid-here",
+  "player_ip": "192.168.1.100",
+  "allowed": true,
+  "check_type": "name"  // 可选：name, uuid, ip
+}</code></pre>
+                </div>
+
+                <div class="mb-3">
+                    <strong>请求示例：</strong>
+                    <pre class="bg-light p-3"><code>curl -X POST "{{ request.host_url }}api/login/log" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "player_name": "PlayerName",
+    "player_uuid": "uuid-here",
+    "player_ip": "192.168.1.100",
+    "allowed": true,
+    "check_type": "name"
+  }'</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,54 @@
+{% extends "layout.html" %}
+
+{% block title %}关于系统{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">关于 CWhitelist</h1>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <h4>CWhitelist 白名单管理系统</h4>
+                <p class="lead">一个专为 Minecraft 服务器设计的现代化白名单管理系统。</p>
+
+                <h5 class="mt-4">主要特性：</h5>
+                <ul>
+                    <li>支持多种验证方式：玩家名称、UUID、IP地址</li>
+                    <li>完整的 API 接口，支持与 Minecraft 模组集成</li>
+                    <li>直观的网页管理界面</li>
+                    <li>支持多服务器管理</li>
+                    <li>详细的登录日志记录</li>
+                    <li>灵活的权限管理系统</li>
+                </ul>
+
+                <h5 class="mt-4">系统信息：</h5>
+                <ul>
+                    <li>版本：1.0.0</li>
+                    <li>开发语言：Python (Flask)</li>
+                    <li>数据库：SQLite / MySQL</li>
+                    <li>前端框架：Bootstrap 5</li>
+                </ul>
+
+                <div class="alert alert-warning mt-4">
+                    <h6><i class="bi bi-exclamation-triangle"></i> 注意事项</h6>
+                    <p class="mb-0">
+                        此系统为开发版本，请勿在生产环境中使用默认密码。<br>
+                        建议在部署前修改所有默认设置。
+                    </p>
+                </div>
+
+                <div class="text-center mt-4">
+                    <a href="{{ url_for('web.dashboard') }}" class="btn btn-primary">
+                        <i class="bi bi-house"></i> 返回首页
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

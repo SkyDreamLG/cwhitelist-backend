@@ -1,0 +1,460 @@
+{% extends "layout.html" %}
+
+{% block title %}白名单管理{% endblock %}
+
+{% block extra_css %}
+<style>
+    .last-login-time {
+        font-size: 12px;
+        color: #6c757d;
+    }
+
+    .last-login-ip {
+        font-family: 'Courier New', monospace;
+        font-size: 11px;
+        background-color: #f8f9fa;
+        padding: 2px 5px;
+        border-radius: 3px;
+    }
+
+    .login-status-allowed {
+        color: #198754;
+    }
+
+    .login-status-denied {
+        color: #dc3545;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">
+            <i class="bi bi-list-check me-2"></i>白名单管理
+        </h1>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <!-- 筛选和操作区域 -->
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row g-3">
+                    <!-- 筛选表单 -->
+                    <div class="col-md-8">
+                        <form method="GET" class="row g-3">
+                            <div class="col-md-3">
+                                <label class="form-label">类型</label>
+                                <select class="form-select" name="type">
+                                    <option value="">所有类型</option>
+                                    <option value="name" {% if filters.type == 'name' %}selected{% endif %}>名称</option>
+                                    <option value="uuid" {% if filters.type == 'uuid' %}selected{% endif %}>UUID</option>
+                                    <option value="ip" {% if filters.type == 'ip' %}selected{% endif %}>IP</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-3">
+                                <label class="form-label">搜索</label>
+                                <input type="text" class="form-control" name="search" value="{{ filters.search }}" placeholder="值或描述">
+                            </div>
+
+                            <div class="col-md-2">
+                                <div class="form-check mt-4">
+                                    <input class="form-check-input" type="checkbox" name="active_only" id="active_only"
+                                           value="true" {% if filters.active_only %}checked{% endif %}>
+                                    <label class="form-check-label" for="active_only">
+                                        仅显示活跃
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary me-2">
+                                    <i class="bi bi-filter me-1"></i>筛选
+                                </button>
+                                <a href="{{ url_for('web.whitelist') }}" class="btn btn-secondary">重置</a>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- 导入按钮 -->
+                    <div class="col-md-4 d-flex align-items-end justify-content-end">
+                        <button type="button" class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#importModal">
+                            <i class="bi bi-upload me-1"></i>导入JSON
+                        </button>
+                        <a href="{{ url_for('web.whitelist') }}" class="btn btn-outline-info">
+                            <i class="bi bi-download me-1"></i>导出JSON
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 导入模态框 -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-upload me-2"></i>从JSON导入白名单
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="importForm" method="POST" action="{{ url_for('web.import_whitelist') }}" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label class="form-label">选择JSON文件</label>
+                        <input type="file" class="form-control" name="json_file" accept=".json" required>
+                        <div class="form-text">
+                            支持格式: [{"type":"name","value":"玩家名"}, {"type":"uuid","value":"uuid"}, {"type":"ip","value":"IP地址"}]
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">导入选项</label>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="skip_existing" id="skip_existing" checked>
+                            <label class="form-check-label" for="skip_existing">
+                                跳过已存在的条目
+                            </label>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="set_inactive" id="set_inactive">
+                            <label class="form-check-label" for="set_inactive">
+                                导入为禁用状态
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">描述（可选）</label>
+                        <input type="text" class="form-control" name="description" placeholder="为导入的条目添加统一描述">
+                    </div>
+                </form>
+
+                <div class="alert alert-info">
+                    <h6><i class="bi bi-info-circle me-2"></i>JSON格式示例</h6>
+                    <pre class="mb-0 mt-2" style="font-size: 12px;">[
+  {"type": "uuid", "value": "117a97e0-10ad-338d-aae2-54c4ec32959f"},
+  {"type": "name", "value": "SkyDream_LG"},
+  {"type": "ip", "value": "192.168.50.127"}
+]</pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="submit" form="importForm" class="btn btn-primary">
+                    <i class="bi bi-upload me-1"></i>开始导入
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- 添加表单 -->
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-plus-circle me-2"></i>添加白名单
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('web.add_whitelist') }}">
+                    <div class="mb-3">
+                        <label class="form-label">类型</label>
+                        <select class="form-select" name="type" required>
+                            <option value="">选择类型</option>
+                            <option value="name">名称</option>
+                            <option value="uuid">UUID</option>
+                            <option value="ip">IP</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">值</label>
+                        <input type="text" class="form-control" name="value" required placeholder="例如: PlayerName, uuid, 192.168.1.*">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">描述（可选）</label>
+                        <input type="text" class="form-control" name="description" placeholder="条目描述">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">过期时间（可选）</label>
+                        <input type="datetime-local" class="form-control" name="expires_at">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-plus-circle me-1"></i>添加条目
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 白名单列表 -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-list-ul me-2"></i>白名单列表
+                </h5>
+                <span class="badge bg-primary">{{ pagination.total }} 条记录</span>
+            </div>
+            <div class="card-body">
+                {% if entries %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>类型</th>
+                                <th>值</th>
+                                <th>描述</th>
+                                <th>创建者</th>
+                                <th>最后登录</th>
+                                <th>过期时间</th>
+                                <th>状态</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in entries %}
+                            {% set entry = item.entry %}
+                            {% set last_login = item.last_login %}
+                            <tr>
+                                <td>
+                                    <span class="badge bg-info">{{ entry.type }}</span>
+                                </td>
+                                <td>
+                                    <code>{{ entry.value }}</code>
+                                    {% if entry.type == 'uuid' %}
+                                    <br>
+                                    <small class="text-muted">{{ entry.value|truncate(8, True, '...') }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>{{ entry.description or '-' }}</td>
+                                <td>{{ entry.created_by }}</td>
+                                <td>
+                                    {% if last_login %}
+                                    <div class="last-login-time">
+                                        <i class="bi bi-clock-history me-1"></i>
+                                        {{ last_login.last_login_at.strftime('%Y-%m-%d %H:%M') }}
+                                        <br>
+                                        <small>
+                                            <span class="last-login-ip">
+                                                <i class="bi bi-globe me-1"></i>{{ last_login.ip_address }}
+                                            </span>
+                                            <br>
+                                            <span class="login-status-{{ 'allowed' if last_login.allowed else 'denied' }}">
+                                                <i class="bi bi-{{ 'check-circle' if last_login.allowed else 'x-circle' }} me-1"></i>
+                                                {{ '允许' if last_login.allowed else '拒绝' }}
+                                            </span>
+                                            {% if last_login.check_type %}
+                                            <span class="badge bg-secondary ms-1">{{ last_login.check_type }}</span>
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                    {% else %}
+                                    <span class="text-muted">从未登录</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if entry.expires_at %}
+                                    {% set now = namespace(current=now()) %}
+                                    {% if entry.expires_at > now.current %}
+                                    <span class="text-success">
+                                        {{ entry.expires_at.strftime('%Y-%m-%d %H:%M') }}
+                                    </span>
+                                    {% else %}
+                                    <span class="text-danger" title="已过期">
+                                        {{ entry.expires_at.strftime('%Y-%m-%d %H:%M') }}
+                                        <i class="bi bi-exclamation-triangle"></i>
+                                    </span>
+                                    {% endif %}
+                                    {% else %}
+                                    <span class="text-muted">永不过期</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-{{ 'success' if entry.is_active else 'secondary' }}">
+                                        {{ '活跃' if entry.is_active else '禁用' }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm">
+                                        <form method="POST" action="{{ url_for('web.toggle_whitelist', entry_id=entry.id) }}"
+                                              style="display: inline;">
+                                            <button type="submit" class="btn btn-{{ 'warning' if entry.is_active else 'success' }}">
+                                                {% if entry.is_active %}
+                                                <i class="bi bi-pause"></i> 禁用
+                                                {% else %}
+                                                <i class="bi bi-play"></i> 启用
+                                                {% endif %}
+                                            </button>
+                                        </form>
+                                        <form method="POST" action="{{ url_for('web.delete_whitelist', entry_id=entry.id) }}"
+                                              style="display: inline;"
+                                              onsubmit="return confirm('确定要删除这个条目吗？');">
+                                            <button type="submit" class="btn btn-danger">
+                                                <i class="bi bi-trash"></i> 删除
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 分页 -->
+                {% if pagination.pages > 1 %}
+                <nav aria-label="Page navigation">
+                    <ul class="pagination justify-content-center">
+                        {% if pagination.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('web.whitelist', page=pagination.prev_num, **filters) }}">
+                                <i class="bi bi-chevron-left"></i> 上一页
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for page_num in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+                            {% if page_num %}
+                                {% if page_num == pagination.page %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ page_num }}</span>
+                                </li>
+                                {% else %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('web.whitelist', page=page_num, **filters) }}">{{ page_num }}</a>
+                                </li>
+                                {% endif %}
+                            {% else %}
+                                <li class="page-item disabled">
+                                    <span class="page-link">...</span>
+                                </li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if pagination.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('web.whitelist', page=pagination.next_num, **filters) }}">
+                                下一页 <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-inbox display-1 text-muted mb-3"></i>
+                    <h4 class="text-muted">暂无白名单条目</h4>
+                    <p class="text-muted">请添加第一个白名单条目</p>
+                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#importModal">
+                        <i class="bi bi-upload me-1"></i>从JSON导入
+                    </button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 导出模态框 -->
+<div class="modal fade" id="exportModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-download me-2"></i>导出白名单为JSON
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">导出选项</label>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="export_active_only" id="export_active_only" checked>
+                        <label class="form-check-label" for="export_active_only">
+                            仅导出活跃条目
+                        </label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" name="export_expired" id="export_expired">
+                        <label class="form-check-label" for="export_expired">
+                            包含已过期条目
+                        </label>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <h6><i class="bi bi-info-circle me-2"></i>导出格式</h6>
+                    <p class="mb-0">导出的JSON文件可以直接用于其他系统或备份。</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <a href="{{ url_for('web.export_whitelist') }}?active_only=true" class="btn btn-primary" id="exportButton">
+                    <i class="bi bi-download me-1"></i>导出JSON
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+    // 导出选项处理
+    document.addEventListener('DOMContentLoaded', function() {
+        const exportActiveOnly = document.getElementById('export_active_only');
+        const exportExpired = document.getElementById('export_expired');
+        const exportButton = document.getElementById('exportButton');
+
+        function updateExportUrl() {
+            const activeOnly = exportActiveOnly.checked ? 'true' : 'false';
+            const includeExpired = exportExpired.checked ? 'true' : 'false';
+            exportButton.href = `{{ url_for('web.export_whitelist') }}?active_only=${activeOnly}&include_expired=${includeExpired}`;
+        }
+
+        exportActiveOnly.addEventListener('change', updateExportUrl);
+        exportExpired.addEventListener('change', updateExportUrl);
+        updateExportUrl(); // 初始化
+
+        // 文件导入预览
+        const fileInput = document.querySelector('input[name="json_file"]');
+        if (fileInput) {
+            fileInput.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        try {
+                            const json = JSON.parse(e.target.result);
+                            if (Array.isArray(json)) {
+                                // 可以在这里添加预览逻辑
+                                console.log(`检测到 ${json.length} 个条目`);
+                            } else {
+                                alert('JSON文件格式不正确，应该是一个数组');
+                            }
+                        } catch (error) {
+                            alert('无法解析JSON文件: ' + error.message);
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            });
+        }
+    });
+</script>
+{% endblock %}
+{% endblock %}

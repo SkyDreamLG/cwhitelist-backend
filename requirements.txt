@@ -1,0 +1,43 @@
+# Web框架
+Flask==2.3.3
+Werkzeug==2.3.0  # 固定版本，避免兼容性问题
+Flask-SQLAlchemy==3.0.5
+Flask-Login==0.6.2
+Flask-Migrate==4.0.5
+Flask-CORS==4.0.0
+Flask-WTF==1.1.1
+Flask-CSRFProtect==0.1.0
+
+# 数据库
+SQLAlchemy==2.0.19
+pymysql==1.1.0
+psycopg2-binary==2.9.9
+
+# 认证和安全性
+pyjwt==2.8.0
+bcrypt==4.0.1
+cryptography==41.0.5
+
+# 表单处理
+WTForms==3.0.1
+email-validator==2.1.0
+
+# 数据处理
+pandas==2.1.1
+numpy==1.24.3
+
+# 异步任务
+celery==5.3.4
+redis==5.0.1
+
+# 邮件
+Flask-Mail==0.9.1
+
+# 配置管理
+python-dotenv==1.0.0
+
+# 开发工具
+alembic==1.12.1
+click==8.1.7
+requests==2.31.0
+python-dateutil==2.8.2
