@@ -20,22 +20,16 @@
         <div class="card">
             <div class="card-body">
                 <div class="list-group list-group-flush">
-    <a href="{{ url_for('web.settings') }}" class="list-group-item list-group-item-action">
-        <i class="bi bi-gear me-2"></i>常规设置
-    </a>
-    <a href="{{ url_for('web.timezone_settings') }}" class="list-group-item list-group-item-action">
-        <i class="bi bi-clock me-2"></i>时区设置
-    </a>
-{#    <a href="#" class="list-group-item list-group-item-action">#}
-{#        <i class="bi bi-shield-lock me-2"></i>安全设置#}
-{#    </a>#}
-{#    <a href="#" class="list-group-item list-group-item-action">#}
-{#        <i class="bi bi-database me-2"></i>数据库设置#}
-{#    </a>#}
-{#    <a href="#" class="list-group-item list-group-item-action">#}
-{#        <i class="bi bi-bell me-2"></i>通知设置#}
-{#    </a>#}
-</div>
+                    <a href="{{ url_for('web.settings') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'web.settings' %}active{% endif %}">
+                        <i class="bi bi-gear me-2"></i>常规设置
+                    </a>
+                    <a href="{{ url_for('web.timezone_settings') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'web.timezone_settings' %}active{% endif %}">
+                        <i class="bi bi-clock me-2"></i>时区设置
+                    </a>
+                    <a href="{{ url_for('web.token_management') }}" class="list-group-item list-group-item-action {% if request.endpoint == 'web.token_management' %}active{% endif %}">
+                        <i class="bi bi-key me-2"></i>API Token管理
+                    </a>
+                </div>
             </div>
         </div>
 
@@ -59,6 +53,32 @@
                 </a>
             </div>
         </div>
+
+        <!-- Token统计 -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="bi bi-key me-2"></i>Token统计
+                </h6>
+                <div class="d-flex justify-content-between">
+                    <div class="text-center">
+                        <h4 class="mb-0">{{ token_stats.total }}</h4>
+                        <small class="text-muted">总数</small>
+                    </div>
+                    <div class="text-center">
+                        <h4 class="mb-0">{{ token_stats.active }}</h4>
+                        <small class="text-muted">活跃</small>
+                    </div>
+                    <div class="text-center">
+                        <h4 class="mb-0">{{ token_stats.expired }}</h4>
+                        <small class="text-muted">过期</small>
+                    </div>
+                </div>
+                <a href="{{ url_for('web.token_management') }}" class="btn btn-sm btn-outline-primary mt-2 w-100">
+                    <i class="bi bi-arrow-right me-1"></i>管理Token
+                </a>
+            </div>
+        </div>
     </div>
 
     <!-- 设置内容 -->
@@ -70,50 +90,138 @@
                 </h5>
             </div>
             <div class="card-body">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
                 <form method="POST" action="{{ url_for('web.save_settings') }}">
                     {% for category, settings in settings_by_category.items() %}
-                    {% if category != 'system' %} {# 隐藏系统设置，单独处理 #}
-                    <h5 class="mb-3">{{ category|title }}设置</h5>
+                    {% if category != 'system' %}
+                    <div class="settings-section mb-4">
+                        <h5 class="mb-3 border-bottom pb-2">{{ category|title }}设置</h5>
 
-                    {% for setting in settings %}
-                    {% if setting.key != 'timezone' %} {# 时区设置单独页面 #}
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="setting_{{ setting.key }}" class="form-label">
-                                {{ setting.description }}
-                            </label>
-                            {% if setting.key == 'admin_password' %}
-                            <input type="password" class="form-control"
-                                   id="setting_{{ setting.key }}"
-                                   name="setting_{{ setting.key }}"
-                                   value="{{ setting.value or '' }}">
-                            {% else %}
-                            <input type="text" class="form-control"
-                                   id="setting_{{ setting.key }}"
-                                   name="setting_{{ setting.key }}"
-                                   value="{{ setting.value or '' }}">
-                            {% endif %}
-                            <div class="form-text">Key: {{ setting.key }}</div>
+                        {% for setting in settings %}
+                        {% if setting.key != 'timezone' %}
+                        <div class="row mb-3">
+                            <div class="col-md-8">
+                                <label for="setting_{{ setting.key }}" class="form-label fw-bold">
+                                    {{ setting.description }}
+                                </label>
+                                {% if setting.key == 'admin_password' %}
+                                <input type="password" class="form-control"
+                                       id="setting_{{ setting.key }}"
+                                       name="setting_{{ setting.key }}"
+                                       value="{{ setting.value or '' }}"
+                                       placeholder="留空表示不修改">
+                                {% elif setting.value is boolean %}
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox"
+                                           id="setting_{{ setting.key }}"
+                                           name="setting_{{ setting.key }}"
+                                           {% if setting.value %}checked{% endif %}>
+                                    <label class="form-check-label" for="setting_{{ setting.key }}">
+                                        {{ '启用' if setting.value else '禁用' }}
+                                    </label>
+                                </div>
+                                {% elif setting.key == 'log_retention_days' or setting.key == 'max_login_attempts' or setting.key == 'session_timeout' %}
+                                <input type="number" class="form-control"
+                                       id="setting_{{ setting.key }}"
+                                       name="setting_{{ setting.key }}"
+                                       value="{{ setting.value or '' }}"
+                                       min="1">
+                                {% else %}
+                                <input type="text" class="form-control"
+                                       id="setting_{{ setting.key }}"
+                                       name="setting_{{ setting.key }}"
+                                       value="{{ setting.value or '' }}">
+                                {% endif %}
+                                <div class="form-text text-muted">
+                                    <small>Key: {{ setting.key }}</small>
+                                </div>
+                            </div>
                         </div>
+                        {% endif %}
+                        {% endfor %}
                     </div>
                     {% endif %}
                     {% endfor %}
 
-                    <hr class="my-4">
-                    {% endif %}
-                    {% endfor %}
-
-                    <div class="text-center">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-save"></i> 保存设置
+                    <div class="text-center pt-3 border-top">
+                        <button type="submit" class="btn btn-primary px-4">
+                            <i class="bi bi-save me-1"></i> 保存设置
                         </button>
-                        <a href="{{ url_for('web.dashboard') }}" class="btn btn-secondary ms-2">
-                            <i class="bi bi-x-circle"></i> 取消
+                        <a href="{{ url_for('web.dashboard') }}" class="btn btn-secondary ms-2 px-4">
+                            <i class="bi bi-x-circle me-1"></i> 取消
                         </a>
                     </div>
                 </form>
             </div>
         </div>
+
+        <!-- API访问设置 -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-plug me-2"></i>API访问设置
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>API端点</h6>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                健康检查
+                                <span class="badge bg-success">无需Token</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                白名单同步
+                                <span class="badge bg-warning">需要Token</span>
+                            </li>
+                            <li class="list-group-item d-flex justify-content-between align-items-center">
+                                记录登录事件
+                                <span class="badge bg-warning">需要Token</span>
+                            </li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>快速操作</h6>
+                        <div class="d-grid gap-2">
+                            <a href="{{ url_for('web.token_management') }}" class="btn btn-outline-primary">
+                                <i class="bi bi-key me-1"></i> 管理API Token
+                            </a>
+                            <a href="{{ url_for('web.api_docs') }}" class="btn btn-outline-info">
+                                <i class="bi bi-code me-1"></i> 查看API文档
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
+
+<style>
+.settings-section {
+    background: #f8f9fa;
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+}
+.list-group-item.active {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+.form-check-input:checked {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+</style>
 {% endblock %}

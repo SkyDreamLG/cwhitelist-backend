@@ -1,6 +1,6 @@
 {% extends "layout.html" %}
 
-{% block title %}API文档{% endblock %}
+{% block title %}API文档 - CWhitelist{% endblock %}
 
 {% block content %}
 <div class="row">
@@ -8,31 +8,136 @@
         <h1 class="mb-4">API文档</h1>
 
         <div class="alert alert-info">
-            <h5>关于API</h5>
-            <p class="mb-0">API基地址：<code>{{ request.host_url }}api</code></p>
+            <h5><i class="bi bi-info-circle me-2"></i>关于API</h5>
+            <p class="mb-0">
+                API基地址：<code>{{ request.host_url }}api</code><br>
+                除健康检查外，所有API都需要使用Token进行认证。
+            </p>
         </div>
     </div>
 </div>
 
 <div class="row">
-    <div class="col-md-12">
-        <!-- 健康检查 -->
-        <div class="card mb-4">
+    <!-- 左侧导航 -->
+    <div class="col-md-3 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h6 class="card-title mb-3">API目录</h6>
+                <div class="list-group list-group-flush">
+                    <a href="#authentication" class="list-group-item list-group-item-action">
+                        <i class="bi bi-shield-lock me-2"></i>认证方式
+                    </a>
+                    <a href="#health-check" class="list-group-item list-group-item-action">
+                        <i class="bi bi-heart-pulse me-2"></i>健康检查
+                    </a>
+                    <a href="#whitelist-sync" class="list-group-item list-group-item-action">
+                        <i class="bi bi-list-check me-2"></i>同步白名单
+                    </a>
+                    <a href="#whitelist-add" class="list-group-item list-group-item-action">
+                        <i class="bi bi-plus-circle me-2"></i>添加白名单
+                    </a>
+                    <a href="#whitelist-delete" class="list-group-item list-group-item-action">
+                        <i class="bi bi-trash me-2"></i>删除白名单
+                    </a>
+                    <a href="#login-log" class="list-group-item list-group-item-action">
+                        <i class="bi bi-door-open me-2"></i>记录登录事件
+                    </a>
+                    <a href="#token-management" class="list-group-item list-group-item-action">
+                        <i class="bi bi-key me-2"></i>Token管理
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Token提示 -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="bi bi-lightbulb me-2"></i>获取Token
+                </h6>
+                <p class="small mb-2">需要在系统中创建Token才能调用API。</p>
+                {% if current_user.is_authenticated and current_user.is_admin() %}
+                <a href="{{ url_for('web.token_management') }}" class="btn btn-sm btn-primary w-100">
+                    <i class="bi bi-plus-circle me-1"></i>创建Token
+                </a>
+                {% else %}
+                <a href="{{ url_for('auth.login') }}" class="btn btn-sm btn-outline-primary w-100">
+                    <i class="bi bi-box-arrow-in-right me-1"></i>登录获取
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- 主要内容区 -->
+    <div class="col-md-9">
+        <!-- 认证方式 -->
+        <div id="authentication" class="card mb-4">
             <div class="card-header">
-                <h5 class="card-title mb-0">健康检查</h5>
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-shield-lock me-2"></i>API认证方式
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>重要：</strong>所有API（除了健康检查）都需要Token认证。
+                </div>
+
+                <h6>Token权限说明：</h6>
+                <ul class="mb-3">
+                    <li><strong>读取权限</strong>：允许调用GET接口（如/health, /whitelist/sync）</li>
+                    <li><strong>写入权限</strong>：允许调用POST接口（如/whitelist/entries, /login/log）</li>
+                    <li><strong>删除权限</strong>：允许调用DELETE接口</li>
+                    <li><strong>管理权限</strong>：允许系统管理操作</li>
+                </ul>
+
+                <h6>认证方式1：HTTP Header（推荐）</h6>
+                <pre class="bg-light p-3 rounded"><code>Authorization: Bearer YOUR_TOKEN_HERE</code></pre>
+
+                <h6 class="mt-4">认证方式2：查询参数</h6>
+                <pre class="bg-light p-3 rounded"><code>?token=YOUR_TOKEN_HERE</code></pre>
+
+                <h6 class="mt-4">错误响应：</h6>
+                <div class="row">
+                    <div class="col-md-6">
+                        <pre class="bg-light p-3 rounded"><code>// 401 Unauthorized
+{
+  "success": false,
+  "message": "Authentication required. Please provide a valid token."
+}</code></pre>
+                    </div>
+                    <div class="col-md-6">
+                        <pre class="bg-light p-3 rounded"><code>// 403 Forbidden
+{
+  "success": false,
+  "message": "Token does not have write permission"
+}</code></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 健康检查 -->
+        <div id="health-check" class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-heart-pulse me-2"></i>健康检查
+                </h5>
+                <span class="badge bg-success">无需Token</span>
             </div>
             <div class="card-body">
                 <h6>GET /health</h6>
-                <p>检查API服务状态</p>
+                <p>检查API服务状态，无需认证。</p>
 
                 <div class="mb-3">
                     <strong>请求示例：</strong>
-                    <pre class="bg-light p-3"><code>curl -X GET "{{ request.host_url }}api/health"</code></pre>
+                    <pre class="bg-light p-3 rounded"><code>curl -X GET "{{ request.host_url }}api/health"</code></pre>
                 </div>
 
                 <div class="mb-3">
-                    <strong>响应示例：</strong>
-                    <pre class="bg-light p-3"><code>{
+                    <strong>成功响应：</strong>
+                    <pre class="bg-light p-3 rounded"><code>{
   "success": true,
   "status": "ok",
   "timestamp": "2024-01-01T00:00:00Z",
@@ -44,29 +149,60 @@
         </div>
 
         <!-- 同步白名单 -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="card-title mb-0">同步白名单</h5>
+        <div id="whitelist-sync" class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-list-check me-2"></i>同步白名单
+                </h5>
+                <span class="badge bg-warning">需要读取权限</span>
             </div>
             <div class="card-body">
                 <h6>GET /whitelist/sync</h6>
-                <p>获取所有白名单条目</p>
+                <p>获取所有白名单条目。需要Token具有<strong>读取权限</strong>。</p>
 
                 <div class="mb-3">
                     <strong>查询参数：</strong>
-                    <ul>
-                        <li><code>only_active</code>: 是否只返回活跃条目（默认: true）</li>
-                    </ul>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th width="30%">参数</th>
+                                <th width="30%">类型</th>
+                                <th width="40%">说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>only_active</code></td>
+                                <td>boolean</td>
+                                <td>是否只返回活跃条目（默认: true）</td>
+                            </tr>
+                            <tr>
+                                <td><code>server_id</code></td>
+                                <td>string</td>
+                                <td>服务器ID（可选）</td>
+                            </tr>
+                            <tr>
+                                <td><code>include_expired</code></td>
+                                <td>boolean</td>
+                                <td>是否包含过期条目（默认: false）</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
 
                 <div class="mb-3">
                     <strong>请求示例：</strong>
-                    <pre class="bg-light p-3"><code>curl -X GET "{{ request.host_url }}api/whitelist/sync?only_active=true"</code></pre>
+                    <pre class="bg-light p-3 rounded"><code># 使用Header认证
+curl -X GET "{{ request.host_url }}api/whitelist/sync?only_active=true" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+
+# 或使用查询参数
+curl -X GET "{{ request.host_url }}api/whitelist/sync?only_active=true&token=YOUR_TOKEN_HERE"</code></pre>
                 </div>
 
                 <div class="mb-3">
-                    <strong>响应示例：</strong>
-                    <pre class="bg-light p-3"><code>{
+                    <strong>成功响应：</strong>
+                    <pre class="bg-light p-3 rounded"><code>{
   "success": true,
   "message": "Sync successful",
   "entries": [
@@ -78,108 +214,499 @@
       "created_by": "admin",
       "created_at": "2024-01-01T00:00:00Z",
       "expires_at": null,
-      "is_active": true
+      "is_active": true,
+      "last_login": "2024-01-01T12:00:00Z",
+      "login_count": 5,
+      "last_login_ip": "192.168.1.100"
     }
   ],
   "total_count": 1,
-  "synced_at": "2024-01-01T00:00:00Z"
+  "synced_at": "2024-01-01T00:00:00Z",
+  "token_info": {
+    "token_id": 1,
+    "token_name": "服务器Token",
+    "permissions": {
+      "can_read": true,
+      "can_write": false
+    }
+  }
 }</code></pre>
                 </div>
             </div>
         </div>
 
         <!-- 添加白名单 -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="card-title mb-0">添加白名单</h5>
+        <div id="whitelist-add" class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-plus-circle me-2"></i>添加白名单
+                </h5>
+                <span class="badge bg-warning">需要写入权限</span>
             </div>
             <div class="card-body">
                 <h6>POST /whitelist/entries</h6>
-                <p>添加新的白名单条目</p>
+                <p>添加新的白名单条目。需要Token具有<strong>写入权限</strong>。</p>
+
+                <div class="mb-3">
+                    <strong>请求头：</strong>
+                    <pre class="bg-light p-3 rounded"><code>Content-Type: application/json</code></pre>
+                </div>
 
                 <div class="mb-3">
                     <strong>请求体：</strong>
-                    <pre class="bg-light p-3"><code>{
-  "type": "name",  // 可选值: name, uuid, ip
-  "value": "PlayerName",
-  "description": "VIP Player",  // 可选
-  "created_by": "admin",  // 可选
+                    <pre class="bg-light p-3 rounded"><code>{
+  "type": "name",              // 必需，可选值: name, uuid, ip
+  "value": "PlayerName",      // 必需，根据类型填写
+  "description": "VIP Player", // 可选
+  "created_by": "api",        // 可选，默认为"api_token_[token_name]"
   "expires_at": "2024-12-31T23:59:59Z",  // 可选，ISO 8601格式
-  "is_active": true  // 可选，默认: true
+  "is_active": true           // 可选，默认: true
 }</code></pre>
                 </div>
 
                 <div class="mb-3">
                     <strong>请求示例：</strong>
-                    <pre class="bg-light p-3"><code>curl -X POST "{{ request.host_url }}api/whitelist/entries" \
+                    <pre class="bg-light p-3 rounded"><code>curl -X POST "{{ request.host_url }}api/whitelist/entries" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
   -H "Content-Type: application/json" \
   -d '{
     "type": "name",
     "value": "PlayerName",
-    "description": "VIP Player"
+    "description": "VIP Player",
+    "expires_at": "2024-12-31T23:59:59Z"
   }'</code></pre>
+                </div>
+
+                <div class="mb-3">
+                    <strong>成功响应：</strong>
+                    <pre class="bg-light p-3 rounded"><code>{
+  "success": true,
+  "message": "Entry added successfully",
+  "entry": {
+    "id": "uuid-here",
+    "type": "name",
+    "value": "PlayerName",
+    "description": "VIP Player",
+    "created_by": "api_token_服务器Token",
+    "created_at": "2024-01-01T00:00:00Z",
+    "expires_at": "2024-12-31T23:59:59Z",
+    "is_active": true
+  },
+  "added_by": "api_token_服务器Token"
+}</code></pre>
+                </div>
+
+                <div class="mb-3">
+                    <strong>错误响应：</strong>
+                    <pre class="bg-light p-3 rounded"><code>// 400 Bad Request
+{
+  "success": false,
+  "message": "Entry already exists"
+}
+
+// 403 Forbidden
+{
+  "success": false,
+  "message": "Token does not have write permission"
+}</code></pre>
                 </div>
             </div>
         </div>
 
         <!-- 删除白名单 -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="card-title mb-0">删除白名单</h5>
+        <div id="whitelist-delete" class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-trash me-2"></i>删除白名单
+                </h5>
+                <span class="badge bg-danger">需要删除权限</span>
             </div>
             <div class="card-body">
                 <h6>DELETE /whitelist/entries/&lt;type&gt;/&lt;value&gt;</h6>
-                <p>删除指定的白名单条目</p>
+                <p>删除指定的白名单条目。需要Token具有<strong>删除权限</strong>。</p>
 
                 <div class="mb-3">
                     <strong>路径参数：</strong>
-                    <ul>
-                        <li><code>type</code>: 条目类型（name, uuid, ip）</li>
-                        <li><code>value</code>: 条目值</li>
-                    </ul>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th width="30%">参数</th>
+                                <th width="70%">说明</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>type</code></td>
+                                <td>条目类型（必需：name, uuid, ip）</td>
+                            </tr>
+                            <tr>
+                                <td><code>value</code></td>
+                                <td>条目值（必需）</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
 
                 <div class="mb-3">
                     <strong>请求示例：</strong>
-                    <pre class="bg-light p-3"><code>curl -X DELETE "{{ request.host_url }}api/whitelist/entries/name/PlayerName"</code></pre>
+                    <pre class="bg-light p-3 rounded"><code>curl -X DELETE "{{ request.host_url }}api/whitelist/entries/name/PlayerName" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"</code></pre>
+                </div>
+
+                <div class="mb-3">
+                    <strong>成功响应：</strong>
+                    <pre class="bg-light p-3 rounded"><code>{
+  "success": true,
+  "message": "Entry deleted successfully",
+  "deleted_by": "api_token_服务器Token"
+}</code></pre>
                 </div>
             </div>
         </div>
 
-        <!-- 记录登录 -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5 class="card-title mb-0">记录登录事件</h5>
+        <!-- 记录登录事件 -->
+        <div id="login-log" class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-door-open me-2"></i>记录登录事件
+                </h5>
+                <span class="badge bg-warning">需要写入权限</span>
             </div>
             <div class="card-body">
                 <h6>POST /login/log</h6>
-                <p>记录玩家登录事件</p>
+                <p>记录Minecraft玩家登录事件。需要Token具有<strong>写入权限</strong>。</p>
+
+                <div class="mb-3">
+                    <strong>请求头：</strong>
+                    <pre class="bg-light p-3 rounded"><code>Content-Type: application/json</code></pre>
+                </div>
 
                 <div class="mb-3">
                     <strong>请求体：</strong>
-                    <pre class="bg-light p-3"><code>{
-  "player_name": "PlayerName",
-  "player_uuid": "uuid-here",
-  "player_ip": "192.168.1.100",
-  "allowed": true,
-  "check_type": "name"  // 可选：name, uuid, ip
+                    <pre class="bg-light p-3 rounded"><code>{
+  "player_name": "PlayerName",      // 必需，玩家游戏名
+  "player_uuid": "uuid-here",       // 必需，玩家UUID
+  "player_ip": "192.168.1.100",     // 必需，玩家IP地址
+  "allowed": true,                  // 必需，是否允许登录
+  "check_type": "name"              // 可选，检查类型：name, uuid, ip
 }</code></pre>
                 </div>
 
                 <div class="mb-3">
                     <strong>请求示例：</strong>
-                    <pre class="bg-light p-3"><code>curl -X POST "{{ request.host_url }}api/login/log" \
+                    <pre class="bg-light p-3 rounded"><code>curl -X POST "{{ request.host_url }}api/login/log" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
   -H "Content-Type: application/json" \
   -d '{
     "player_name": "PlayerName",
-    "player_uuid": "uuid-here",
+    "player_uuid": "12345678-1234-1234-1234-123456789012",
     "player_ip": "192.168.1.100",
     "allowed": true,
     "check_type": "name"
   }'</code></pre>
                 </div>
+
+                <div class="mb-3">
+                    <strong>成功响应：</strong>
+                    <pre class="bg-light p-3 rounded"><code>{
+  "success": true,
+  "message": "Login logged successfully",
+  "log_id": 123,
+  "logged_by": "api_token_服务器Token"
+}</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Token管理API -->
+        <div id="token-management" class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-key me-2"></i>Token管理API
+                </h5>
+                <span class="badge bg-info">需要管理员权限</span>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    <strong>注意：</strong>Token管理API需要通过Web界面管理员登录后才能使用。
+                </div>
+
+                <h6>POST /tokens/create</h6>
+                <p>创建新的API Token（需要Web管理员登录）。</p>
+
+                <div class="mb-3">
+                    <strong>请求体：</strong>
+                    <pre class="bg-light p-3 rounded"><code>{
+  "name": "服务器Token",           // 必需，Token名称
+  "can_read": true,               // 可选，默认: true
+  "can_write": true,              // 可选，默认: false
+  "can_delete": false,            // 可选，默认: false
+  "can_manage": false,            // 可选，默认: false
+  "days_valid": 365               // 可选，有效期（天），0表示永不过期
+}</code></pre>
+                </div>
+
+                <div class="mb-3">
+                    <strong>请求示例：</strong>
+                    <pre class="bg-light p-3 rounded"><code>curl -X POST "{{ request.host_url }}api/tokens/create" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Minecraft服务器",
+    "can_read": true,
+    "can_write": true,
+    "can_delete": false,
+    "can_manage": false,
+    "days_valid": 365
+  }'</code></pre>
+                </div>
+
+                <div class="mb-3">
+                    <strong>成功响应：</strong>
+                    <pre class="bg-light p-3 rounded"><code>{
+  "success": true,
+  "message": "Token created successfully",
+  "token": "完整的Token字符串（只在这里显示一次）",
+  "token_info": {
+    "id": 1,
+    "name": "Minecraft服务器",
+    "created_at": "2024-01-01T00:00:00Z",
+    "expires_at": "2024-12-31T23:59:59Z",
+    "permissions": {
+      "can_read": true,
+      "can_write": true,
+      "can_delete": false,
+      "can_manage": false
+    }
+  }
+}</code></pre>
+                </div>
+
+                <hr class="my-4">
+
+                <h6>GET /tokens/verify</h6>
+                <p>验证Token有效性。</p>
+
+                <div class="mb-3">
+                    <strong>请求示例：</strong>
+                    <pre class="bg-light p-3 rounded"><code>curl -X GET "{{ request.host_url }}api/tokens/verify" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"</code></pre>
+                </div>
+
+                <div class="mb-3">
+                    <strong>成功响应：</strong>
+                    <pre class="bg-light p-3 rounded"><code>{
+  "success": true,
+  "message": "Token is valid",
+  "token": {
+    "id": 1,
+    "name": "服务器Token",
+    "token": "token...",
+    "created_at": "2024-01-01T00:00:00Z",
+    "expires_at": "2024-12-31T23:59:59Z",
+    "is_active": true,
+    "permissions": {
+      "can_read": true,
+      "can_write": true,
+      "can_delete": false,
+      "can_manage": false
+    }
+  },
+  "valid_until": "2024-12-31T23:59:59Z"
+}</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- 使用示例 -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-code-slash me-2"></i>完整使用示例
+                </h5>
+            </div>
+            <div class="card-body">
+                <h6>Python示例：</h6>
+                <pre class="bg-light p-3 rounded"><code>import requests
+import json
+
+API_BASE_URL = "{{ request.host_url }}api"
+TOKEN = "YOUR_TOKEN_HERE"
+
+headers = {
+    "Authorization": f"Bearer {TOKEN}",
+    "Content-Type": "application/json"
+}
+
+# 1. 同步白名单
+def sync_whitelist():
+    response = requests.get(f"{API_BASE_URL}/whitelist/sync", headers=headers)
+    if response.status_code == 200:
+        data = response.json()
+        print(f"获取到 {data['total_count']} 个白名单条目")
+        return data['entries']
+    else:
+        print(f"同步失败: {response.text}")
+        return []
+
+# 2. 记录玩家登录
+def log_player_login(player_name, player_uuid, player_ip, allowed=True, check_type="name"):
+    data = {
+        "player_name": player_name,
+        "player_uuid": player_uuid,
+        "player_ip": player_ip,
+        "allowed": allowed,
+        "check_type": check_type
+    }
+
+    response = requests.post(f"{API_BASE_URL}/login/log",
+                           headers=headers,
+                           data=json.dumps(data))
+
+    if response.status_code == 200:
+        print(f"成功记录 {player_name} 的登录")
+    else:
+        print(f"记录失败: {response.text}")
+
+# 使用示例
+if __name__ == "__main__":
+    # 同步白名单
+    whitelist_entries = sync_whitelist()
+
+    # 记录玩家登录
+    log_player_login(
+        player_name="TestPlayer",
+        player_uuid="12345678-1234-1234-1234-123456789012",
+        player_ip="192.168.1.100",
+        allowed=True
+    )</code></pre>
+
+                <h6 class="mt-4">Shell脚本示例：</h6>
+                <pre class="bg-light p-3 rounded"><code>#!/bin/bash
+
+API_BASE_URL="{{ request.host_url }}api"
+TOKEN="YOUR_TOKEN_HERE"
+
+# 同步白名单
+sync_whitelist() {
+    curl -s -X GET "${API_BASE_URL}/whitelist/sync?only_active=true" \
+         -H "Authorization: Bearer ${TOKEN}"
+}
+
+# 记录登录事件
+log_login() {
+    PLAYER_NAME="$1"
+    PLAYER_UUID="$2"
+    PLAYER_IP="$3"
+
+    curl -s -X POST "${API_BASE_URL}/login/log" \
+         -H "Authorization: Bearer ${TOKEN}" \
+         -H "Content-Type: application/json" \
+         -d "{
+               \"player_name\": \"${PLAYER_NAME}\",
+               \"player_uuid\": \"${PLAYER_UUID}\",
+               \"player_ip\": \"${PLAYER_IP}\",
+               \"allowed\": true,
+               \"check_type\": \"name\"
+             }"
+}
+
+# 使用示例
+echo "同步白名单..."
+sync_whitelist
+
+echo "记录玩家登录..."
+log_login "TestPlayer" "12345678-1234-1234-1234-123456789012" "192.168.1.100"</code></pre>
             </div>
         </div>
     </div>
 </div>
+
+<!-- 回到顶部按钮 -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1030;">
+    <button class="btn btn-primary rounded-circle p-2" onclick="scrollToTop()"
+            style="width: 50px; height: 50px;">
+        <i class="bi bi-arrow-up"></i>
+    </button>
+</div>
+
+<script>
+// 平滑滚动到锚点
+document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+    anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const targetId = this.getAttribute('href');
+        if (targetId === '#') return;
+
+        const targetElement = document.querySelector(targetId);
+        if (targetElement) {
+            window.scrollTo({
+                top: targetElement.offsetTop - 80,
+                behavior: 'smooth'
+            });
+        }
+    });
+});
+
+// 回到顶部
+function scrollToTop() {
+    window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+    });
+}
+
+// 高亮当前查看的部分
+const sections = document.querySelectorAll('div[id]');
+const navLinks = document.querySelectorAll('.list-group-item');
+
+window.addEventListener('scroll', () => {
+    let current = '';
+
+    sections.forEach(section => {
+        const sectionTop = section.offsetTop;
+        const sectionHeight = section.clientHeight;
+        if (scrollY >= (sectionTop - 100)) {
+            current = section.getAttribute('id');
+        }
+    });
+
+    navLinks.forEach(link => {
+        link.classList.remove('active');
+        if (link.getAttribute('href') === `#${current}`) {
+            link.classList.add('active');
+        }
+    });
+});
+</script>
+
+<style>
+.card {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    border: 1px solid #dee2e6;
+}
+.card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+.badge {
+    font-size: 0.75em;
+    font-weight: 500;
+}
+pre {
+    border-radius: 5px;
+    border: 1px solid #dee2e6;
+}
+.list-group-item.active {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+.list-group-item:hover {
+    background-color: #f8f9fa;
+}
+.table-sm th, .table-sm td {
+    padding: 0.5rem;
+}
+</style>
 {% endblock %}
