@@ -1,7 +1,9 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify
+# routes/web.py
+from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify, session
 from flask_login import login_required, current_user
-from sqlalchemy import desc, or_
+from sqlalchemy import desc, or_, inspect
 from datetime import datetime
+import traceback
 
 import json
 from werkzeug.utils import secure_filename
@@ -9,6 +11,7 @@ import os
 
 from config import config
 from models.database import db
+from models.token import Token
 from models.whitelist import WhitelistEntry
 from models.setting import Setting
 from models.log import Log
@@ -16,29 +19,31 @@ from models.log import Log
 web_bp = Blueprint('web', __name__)
 
 
-# OOBE 检查函数
+# OOBE 检查函数 - 简化版本
 def is_oobe_required():
     """检查是否需要OOBE设置"""
-    from models.user import User
-    from models.setting import Setting
-
     try:
-        # 检查是否有管理员用户
+        # 首先检查数据库表是否存在
+        from sqlalchemy import inspect
+        inspector = inspect(db.engine)
+        table_names = inspector.get_table_names()
+
+        # 如果users表不存在，需要OOBE
+        if 'users' not in table_names:
+            return True
+
+        # 如果表存在，检查是否有管理员用户
+        from models.user import User
         admin_exists = User.query.filter_by(role='admin').first() is not None
 
-        # 检查必要设置是否存在
-        required_settings = ['site_title', 'admin_email']
-        settings_exist = True
-        for key in required_settings:
-            if not Setting.query.filter_by(key=key).first():
-                settings_exist = False
-                break
+        # 如果没有管理员用户，也需要OOBE
+        if not admin_exists:
+            return True
 
-        # 如果需要OOBE，返回True
-        return not (admin_exists and settings_exist)
+        return False
     except Exception as e:
-        # 如果查询出错，说明数据库可能还没初始化，需要OOBE
-        print(f"OOBE检查出错: {e}")
+        # 任何异常都认为需要OOBE
+        print(f"OOBE检查异常: {e}")
         return True
 
 
@@ -420,8 +425,23 @@ def settings():
             settings_by_category[category] = []
         settings_by_category[category].append(setting)
 
+    # 获取Token统计
+    from utils.timezone import now_utc
+    total_tokens = Token.query.count()
+    active_tokens = Token.query.filter_by(is_active=True).count()
+    expired_tokens = Token.query.filter(
+        Token.expires_at.isnot(None),
+        Token.expires_at < now_utc(),
+        Token.is_active == True
+    ).count()
+
     return render_template('settings.html',
-                           settings_by_category=settings_by_category)
+                           settings_by_category=settings_by_category,
+                           token_stats={
+                               'total': total_tokens,
+                               'active': active_tokens,
+                               'expired': expired_tokens
+                           })
 
 
 @web_bp.route('/settings/save', methods=['POST'])
@@ -482,14 +502,16 @@ def about():
 
 @web_bp.route('/oobe', methods=['GET', 'POST'])
 def oobe():
-    """OOBE设置页面"""
-    # 如果不需要OOBE，重定向到登录页
+    """OOBE设置页面 - 完整集成初始化功能"""
+    # 如果系统已经初始化且不需要OOBE，重定向到登录页
     if not is_oobe_required():
-        print("OOBE不需要，重定向到登录页")
+        print("系统已初始化，重定向到登录页")
+        flash('系统已初始化，请登录', 'info')
         return redirect(url_for('auth.login'))
 
     if request.method == 'POST':
         # 处理OOBE设置
+        admin_username = request.form.get('admin_username', 'admin').strip()
         admin_email = request.form.get('admin_email', '').strip()
         admin_password = request.form.get('admin_password', '')
         admin_confirm = request.form.get('admin_confirm', '')
@@ -498,8 +520,15 @@ def oobe():
         # 验证输入
         errors = []
 
+        if not admin_username:
+            errors.append('请填写管理员用户名')
+        elif len(admin_username) < 3:
+            errors.append('用户名至少3个字符')
+
         if not admin_email:
             errors.append('请填写管理员邮箱')
+        elif '@' not in admin_email:
+            errors.append('邮箱格式不正确')
 
         if not admin_password:
             errors.append('请填写管理员密码')
@@ -517,48 +546,146 @@ def oobe():
             return render_template('oobe.html')
 
         try:
+            print("开始系统初始化...")
+
+            # 1. 创建数据库表（如果不存在）
+            print("步骤1: 创建数据库表...")
+            db.create_all()
+            print("✓ 数据库表创建完成")
+
+            # 2. 创建管理员用户
+            print("步骤2: 创建管理员用户...")
             from models.user import User
 
-            # 检查是否已存在管理员用户
+            # 检查是否已存在管理员
             existing_admin = User.query.filter_by(role='admin').first()
             if existing_admin:
                 # 更新现有管理员
+                existing_admin.username = admin_username
                 existing_admin.email = admin_email
                 existing_admin.set_password(admin_password)
+                print("✓ 更新现有管理员")
             else:
-                # 创建管理员用户
+                # 创建新管理员
                 admin_user = User(
-                    username='admin',
+                    username=admin_username,
                     email=admin_email,
                     role='admin',
                     is_active=True
                 )
                 admin_user.set_password(admin_password)
                 db.session.add(admin_user)
+                print("✓ 创建新管理员")
 
-            # 保存设置
+            # 3. 创建系统设置
+            print("步骤3: 创建系统设置...")
+
+            # 保存基本设置
             Setting.set_value('site_title', site_title, '站点标题', 'system')
             Setting.set_value('admin_email', admin_email, '管理员邮箱', 'system')
-            Setting.set_value('app_name', site_title, '应用名称', 'system')
+            Setting.set_value('app_name', 'CWhitelist', '应用名称', 'system')
+            Setting.set_value('timezone', 'Asia/Shanghai', '系统时区设置', 'system')
 
-            # 设置默认值
+            # 设置默认配置
             default_settings = [
                 ('registration_enabled', 'false', '允许用户注册', 'security'),
                 ('log_retention_days', '30', '日志保留天数', 'logging'),
                 ('max_login_attempts', '5', '最大登录尝试次数', 'security'),
+                ('session_timeout', '60', '会话超时（分钟）', 'security'),
+                ('require_auth', 'true', 'API需要认证', 'security'),
+                ('api_rate_limit', '100/hour', 'API速率限制', 'api'),
+                ('default_timezone', 'Asia/Shanghai', '默认时区', 'system'),
+                ('site_description', 'CWhitelist管理系统', '站点描述', 'system'),
+                ('maintenance_mode', 'false', '维护模式', 'system'),
+                ('enable_api', 'true', '启用API', 'api'),
             ]
 
             for key, value, description, category in default_settings:
                 Setting.set_value(key, value, description, category)
 
+            print("✓ 系统设置创建完成")
+
+            # 4. 创建示例Token（可选）
+            print("步骤4: 创建示例API Token...")
+            try:
+                import secrets
+                token_str = secrets.token_hex(32)
+
+                # 获取刚创建的管理员ID
+                admin = User.query.filter_by(email=admin_email).first()
+                if admin:
+                    example_token = Token(
+                        token=token_str,
+                        name='示例服务器Token',
+                        user_id=admin.id,
+                        can_read=True,
+                        can_write=False,
+                        can_delete=False,
+                        can_manage=False,
+                        is_active=True
+                    )
+                    db.session.add(example_token)
+                    print(f"✓ 创建示例Token: {token_str[:16]}...")
+            except Exception as token_error:
+                print(f"⚠ 创建示例Token失败: {token_error}")
+
+            # 5. 提交所有更改
+            db.session.commit()
+            print("✓ 数据库提交完成")
+
+            # 6. 记录初始化日志
+            log = Log(
+                level='info',
+                message='系统OOBE初始化完成',
+                source='system',
+                ip_address=request.remote_addr,
+                details=f'admin_username: {admin_username}, admin_email: {admin_email}, site_title: {site_title}'
+            )
+            db.session.add(log)
             db.session.commit()
 
-            flash('系统初始化完成，请使用管理员账号登录', 'success')
+            # 7. 验证初始化结果
+            print("\n验证初始化结果:")
+            from sqlalchemy import inspect
+            inspector = inspect(db.engine)
+            tables = inspector.get_table_names()
+
+            required_tables = ['users', 'settings', 'whitelist_entries', 'logs', 'tokens']
+            for table in required_tables:
+                if table in tables:
+                    print(f"  ✓ {table} 表存在")
+                else:
+                    print(f"  ✗ {table} 表缺失")
+
+            # 检查管理员
+            admin_check = User.query.filter_by(role='admin').first()
+            if admin_check:
+                print(f"  ✓ 管理员用户: {admin_check.username}")
+            else:
+                print("  ✗ 未找到管理员用户")
+
+            # 检查设置
+            settings_count = Setting.query.count()
+            print(f"  ✓ 系统设置: {settings_count} 条")
+
+            print("\n✅ 系统初始化成功完成！")
+
+            flash(f'系统初始化成功！管理员账户: {admin_username}，请使用该账户登录。', 'success')
             return redirect(url_for('auth.login'))
 
         except Exception as e:
             db.session.rollback()
-            flash(f'初始化失败: {str(e)}', 'error')
+            print(f"❌ 初始化失败: {e}")
+            traceback.print_exc()
+
+            # 提供更详细的错误信息
+            error_msg = f'初始化失败: {str(e)}'
+            if 'UNIQUE constraint failed' in str(e):
+                error_msg += ' (可能是用户名或邮箱已存在)'
+            elif 'no such table' in str(e):
+                error_msg += ' (数据库表创建失败)'
+
+            flash(error_msg, 'error')
             return render_template('oobe.html')
 
     return render_template('oobe.html')
@@ -731,6 +858,7 @@ def export_whitelist():
     except Exception as e:
         flash(f'导出失败: {str(e)}', 'error')
         return redirect(url_for('web.whitelist'))
+
 
 @web_bp.route('/timezone')
 @login_required
@@ -942,3 +1070,275 @@ def get_all_timezones():
             'success': False,
             'message': f'获取时区列表失败: {str(e)}'
         }), 500
+
+
+# Token管理路由
+
+@web_bp.route('/tokens')
+@login_required
+def token_management():
+    """Token管理页面"""
+    if not current_user.is_admin():
+        flash('需要管理员权限', 'error')
+        return redirect(url_for('web.dashboard'))
+
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+
+    query = Token.query
+
+    # 统计信息
+    total_tokens = query.count()
+    active_tokens = query.filter_by(is_active=True).count()
+
+    from utils.timezone import now_utc
+    expired_tokens = query.filter(
+        Token.expires_at.isnot(None),
+        Token.expires_at < now_utc()
+    ).count()
+
+    # 分页
+    pagination = query.order_by(Token.created_at.desc()).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+
+    # 检查是否有新创建的Token需要显示
+    new_token = None
+    if session.get('new_token_created'):
+        new_token = session.get('new_token_data')
+        # 清除session中的标记
+        session.pop('new_token_created', None)
+        session.pop('new_token_data', None)
+
+    return render_template('tokens.html',
+                           tokens=pagination.items,
+                           pagination=pagination,
+                           total_tokens=total_tokens,
+                           active_tokens=active_tokens,
+                           expired_tokens=expired_tokens,
+                           new_token=new_token)
+
+
+@web_bp.route('/tokens/create', methods=['POST'])
+@login_required
+def create_web_token():
+    """通过Web界面创建Token"""
+    if not current_user.is_admin():
+        flash('需要管理员权限', 'error')
+        return redirect(url_for('web.token_management'))
+
+    name = request.form.get('name', '').strip()
+    can_read = request.form.get('can_read') == 'on'
+    can_write = request.form.get('can_write') == 'on'
+    can_delete = request.form.get('can_delete') == 'on'
+    can_manage = request.form.get('can_manage') == 'on'
+
+    # 处理有效期
+    days_valid_str = request.form.get('days_valid', '0').strip()
+    if days_valid_str == '' or days_valid_str == '0':
+        days_valid = None  # 永不过期
+    else:
+        try:
+            days_valid = int(days_valid_str)
+            if days_valid <= 0:
+                days_valid = None
+        except ValueError:
+            flash('有效期格式错误', 'error')
+            return redirect(url_for('web.token_management'))
+
+    if not name:
+        flash('请输入Token名称', 'error')
+        return redirect(url_for('web.token_management'))
+
+    try:
+        # 生成Token字符串
+        import secrets
+        token_str = secrets.token_hex(32)
+
+        # 创建Token
+        from utils.timezone import now_utc
+        from datetime import timedelta
+
+        token = Token(
+            token=token_str,
+            name=name,
+            user_id=current_user.id,
+            can_read=can_read,
+            can_write=can_write,
+            can_delete=can_delete,
+            can_manage=can_manage,
+            is_active=True
+        )
+
+        if days_valid:
+            token.expires_at = now_utc() + timedelta(days=days_valid)
+
+        db.session.add(token)
+        db.session.commit()
+
+        # 准备显示的数据
+        from utils.timezone import format_datetime
+        new_token_data = {
+            'name': token.name,
+            'token': token.token,
+            'expires_at': token.expires_at.isoformat() if token.expires_at else None,
+            'expires_at_formatted': format_datetime(token.expires_at) if token.expires_at else '永不过期'
+        }
+
+        # 存储在session中以便在下一页显示
+        session['new_token_created'] = True
+        session['new_token_data'] = new_token_data
+
+        # 记录操作日志
+        log = Log(
+            level='info',
+            message=f'创建API Token: {name}',
+            source='web',
+            ip_address=request.remote_addr,
+            user_id=current_user.id,
+            details=f'token_id: {token.id}, permissions: read={can_read}, write={can_write}, delete={can_delete}, manage={can_manage}'
+        )
+        db.session.add(log)
+        db.session.commit()
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'创建Token失败: {str(e)}', 'error')
+
+    return redirect(url_for('web.token_management'))
+
+
+@web_bp.route('/tokens/<int:token_id>/toggle', methods=['POST'])
+@login_required
+def toggle_token(token_id):
+    """切换Token状态"""
+    if not current_user.is_admin():
+        flash('需要管理员权限', 'error')
+        return redirect(url_for('web.token_management'))
+
+    token = Token.query.get_or_404(token_id)
+
+    # 检查权限：只有Token创建者或管理员可以操作
+    if token.user_id != current_user.id and not current_user.is_admin():
+        flash('没有权限操作此Token', 'error')
+        return redirect(url_for('web.token_management'))
+
+    old_status = token.is_active
+    token.is_active = not token.is_active
+    db.session.commit()
+
+    # 记录操作日志
+    log = Log(
+        level='info',
+        message=f'切换Token状态: {token.name} ({old_status} -> {token.is_active})',
+        source='web',
+        ip_address=request.remote_addr,
+        user_id=current_user.id,
+        details=f'token_id: {token.id}'
+    )
+    db.session.add(log)
+    db.session.commit()
+
+    status = '启用' if token.is_active else '禁用'
+    flash(f'Token已{status}', 'success')
+    return redirect(url_for('web.token_management'))
+
+
+@web_bp.route('/tokens/<int:token_id>/delete', methods=['POST'])
+@login_required
+def delete_token(token_id):
+    """删除Token"""
+    if not current_user.is_admin():
+        flash('需要管理员权限', 'error')
+        return redirect(url_for('web.token_management'))
+
+    token = Token.query.get_or_404(token_id)
+
+    # 检查权限：只有Token创建者或管理员可以操作
+    if token.user_id != current_user.id and not current_user.is_admin():
+        flash('没有权限操作此Token', 'error')
+        return redirect(url_for('web.token_management'))
+
+    token_name = token.name
+
+    # 记录删除日志
+    log = Log(
+        level='warning',
+        message=f'删除API Token: {token_name}',
+        source='web',
+        ip_address=request.remote_addr,
+        user_id=current_user.id,
+        details=f'token_id: {token.id}, token: {token.token[:16]}...'
+    )
+    db.session.add(log)
+
+    db.session.delete(token)
+    db.session.commit()
+
+    flash(f'Token [{token_name}] 已删除', 'success')
+    return redirect(url_for('web.token_management'))
+
+
+@web_bp.route('/tokens/<int:token_id>/refresh', methods=['POST'])
+@login_required
+def refresh_token(token_id):
+    """刷新Token（生成新值）"""
+    if not current_user.is_admin():
+        flash('需要管理员权限', 'error')
+        return redirect(url_for('web.token_management'))
+
+    token = Token.query.get_or_404(token_id)
+
+    # 检查权限：只有Token创建者或管理员可以操作
+    if token.user_id != current_user.id and not current_user.is_admin():
+        flash('没有权限操作此Token', 'error')
+        return redirect(url_for('web.token_management'))
+
+    try:
+        import secrets
+        old_token = token.token[:16] + '...'  # 记录部分用于日志
+
+        # 生成新Token
+        token.token = secrets.token_hex(32)
+
+        # 可选：重置过期时间
+        from utils.timezone import now_utc
+        from datetime import timedelta
+
+        # 保持原有过期时间或重置为30天后
+        if token.expires_at and token.expires_at < now_utc():
+            token.expires_at = now_utc() + timedelta(days=30)
+
+        db.session.commit()
+
+        # 记录操作日志
+        log = Log(
+            level='info',
+            message=f'刷新API Token: {token.name}',
+            source='web',
+            ip_address=request.remote_addr,
+            user_id=current_user.id,
+            details=f'token_id: {token.id}, old_token: {old_token}'
+        )
+        db.session.add(log)
+        db.session.commit()
+
+        # 将新Token存储在session中以便显示
+        from utils.timezone import format_datetime
+        new_token_data = {
+            'name': token.name,
+            'token': token.token,
+            'expires_at': token.expires_at.isoformat() if token.expires_at else None,
+            'expires_at_formatted': format_datetime(token.expires_at) if token.expires_at else '永不过期'
+        }
+
+        session['new_token_created'] = True
+        session['new_token_data'] = new_token_data
+
+        flash('Token已刷新，请保存新Token', 'success')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(f'刷新Token失败: {str(e)}', 'error')
+
+    return redirect(url_for('web.token_management'))

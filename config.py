@@ -1,5 +1,6 @@
 # config.py
 import os
+import secrets
 from datetime import timedelta
 from pathlib import Path
 
@@ -42,7 +43,13 @@ class Config:
     CACHE_TYPE = 'simple'
     CACHE_DEFAULT_TIMEOUT = 300
 
-    # 不再需要 init_app 方法，初始化逻辑移到 app.py
+    # JWT配置
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or secrets.token_hex(32)
+    JWT_ALGORITHM = 'HS256'
+    JWT_EXPIRATION_HOURS = 24
+
+    # API配置
+    API_RATE_LIMIT = '1000/hour'  # API速率限制
 
 
 class DevelopmentConfig(Config):

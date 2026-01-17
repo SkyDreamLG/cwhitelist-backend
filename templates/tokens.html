@@ -1,0 +1,484 @@
+{% extends "layout.html" %}
+
+{% block title %}API Token管理 - CWhitelist{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">API Token管理</h1>
+    </div>
+</div>
+
+<div class="row">
+    <!-- 侧边导航 -->
+    <div class="col-md-3 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+                    <a href="{{ url_for('web.settings') }}" class="list-group-item list-group-item-action">
+                        <i class="bi bi-gear me-2"></i>常规设置
+                    </a>
+                    <a href="{{ url_for('web.timezone_settings') }}" class="list-group-item list-group-item-action">
+                        <i class="bi bi-clock me-2"></i>时区设置
+                    </a>
+                    <a href="{{ url_for('web.token_management') }}" class="list-group-item list-group-item-action active">
+                        <i class="bi bi-key me-2"></i>API Token管理
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Token统计 -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="bi bi-graph-up me-2"></i>Token统计
+                </h6>
+                <div class="d-flex justify-content-between">
+                    <div class="text-center">
+                        <h3 class="mb-0">{{ total_tokens }}</h3>
+                        <small class="text-muted">总数</small>
+                    </div>
+                    <div class="text-center">
+                        <h3 class="mb-0">{{ active_tokens }}</h3>
+                        <small class="text-muted">活跃</small>
+                    </div>
+                    <div class="text-center">
+                        <h3 class="mb-0">{{ expired_tokens }}</h3>
+                        <small class="text-muted">过期</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 使用说明 -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="bi bi-info-circle me-2"></i>使用说明
+                </h6>
+                <p class="small mb-0">
+                    API Token用于外部系统调用API接口。创建Token后请妥善保管，Token将只显示一次。
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 主要内容区 -->
+    <div class="col-md-9">
+        <!-- 创建Token卡片 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-plus-circle me-2"></i>创建新Token
+                </h5>
+            </div>
+            <div class="card-body">
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <form method="POST" action="{{ url_for('web.create_web_token') }}">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="name" class="form-label">Token名称 <span class="text-danger">*</span></label>
+                                <input type="text" class="form-control" id="name" name="name" required
+                                       placeholder="例如: Minecraft服务器API" maxlength="64">
+                                <div class="form-text">用于标识Token用途的名称</div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="days_valid" class="form-label">有效期（天）</label>
+                                <input type="number" class="form-control" id="days_valid" name="days_valid"
+                                       value="365" min="0" max="3650">
+                                <div class="form-text">设置为0表示永不过期</div>
+                            </div>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label">权限设置</label>
+                            <div class="mb-3">
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="can_read" name="can_read" checked>
+                                    <label class="form-check-label" for="can_read">
+                                        <strong>读取权限</strong>
+                                        <br>
+                                        <small class="text-muted">允许读取白名单、日志等数据</small>
+                                    </label>
+                                </div>
+
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="can_write" name="can_write">
+                                    <label class="form-check-label" for="can_write">
+                                        <strong>写入权限</strong>
+                                        <br>
+                                        <small class="text-muted">允许添加、修改数据</small>
+                                    </label>
+                                </div>
+
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="can_delete" name="can_delete">
+                                    <label class="form-check-label" for="can_delete">
+                                        <strong>删除权限</strong>
+                                        <br>
+                                        <small class="text-muted">允许删除数据</small>
+                                    </label>
+                                </div>
+
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" id="can_manage" name="can_manage">
+                                    <label class="form-check-label" for="can_manage">
+                                        <strong>管理权限</strong>
+                                        <br>
+                                        <small class="text-muted">允许系统管理操作</small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-warning">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        <strong>重要提示：</strong>Token创建成功后只会显示一次，请务必立即复制保存。
+                    </div>
+
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="submit" class="btn btn-primary px-4">
+                            <i class="bi bi-key me-1"></i> 创建Token
+                        </button>
+                        <button type="reset" class="btn btn-secondary px-4">
+                            <i class="bi bi-arrow-clockwise me-1"></i> 重置
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 已有Token列表 -->
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-list me-2"></i>已有Token列表
+                </h5>
+                <span class="badge bg-info">{{ tokens|length }} 个</span>
+            </div>
+
+            <div class="card-body">
+                {% if tokens %}
+                <div class="table-responsive">
+                    <table class="table table-hover table-sm">
+                        <thead>
+                            <tr>
+                                <th width="5%">ID</th>
+                                <th width="20%">名称</th>
+                                <th width="15%">Token预览</th>
+                                <th width="15%">创建时间</th>
+                                <th width="15%">过期时间</th>
+                                <th width="10%">使用次数</th>
+                                <th width="10%">状态</th>
+                                <th width="10%">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for token in tokens %}
+                            <tr>
+                                <td>{{ token.id }}</td>
+                                <td>
+                                    <strong>{{ token.name }}</strong>
+                                    <div class="small text-muted">
+                                        <i class="bi bi-person me-1"></i>{{ token.user.username if token.user else '未知用户' }}
+                                        <br>
+                                        权限:
+                                        {% if token.can_read %}<span class="badge bg-info me-1">读</span>{% endif %}
+                                        {% if token.can_write %}<span class="badge bg-warning me-1">写</span>{% endif %}
+                                        {% if token.can_delete %}<span class="badge bg-danger me-1">删</span>{% endif %}
+                                        {% if token.can_manage %}<span class="badge bg-primary me-1">管</span>{% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    <code>{{ token.token[:8] }}...{{ token.token[-8:] if token.token|length > 16 else '' }}</code>
+                                    <br>
+                                    <small class="text-muted">最后IP: {{ token.last_ip or '未使用' }}</small>
+                                </td>
+                                <td>{{ format_datetime(token.created_at) }}</td>
+                                <td>
+                                    {% if token.expires_at %}
+                                        {% if token.is_expired() %}
+                                            <span class="text-danger">{{ format_datetime(token.expires_at) }}</span>
+                                        {% else %}
+                                            {{ format_datetime(token.expires_at) }}
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">永不过期</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="badge bg-secondary">{{ token.use_count }}</span>
+                                    {% if token.last_used %}
+                                    <br>
+                                    <small class="text-muted">最后使用: {{ format_datetime(token.last_used) }}</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if token.is_active %}
+                                        {% if token.is_expired() %}
+                                            <span class="badge bg-secondary">已过期</span>
+                                        {% else %}
+                                            <span class="badge bg-success">活跃</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="badge bg-danger">禁用</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        {% if token.is_active and not token.is_expired() %}
+                                            <form method="POST" action="{{ url_for('web.toggle_token', token_id=token.id) }}" style="display: inline;">
+                                                <button type="submit" class="btn btn-warning btn-sm" title="禁用">
+                                                    <i class="bi bi-pause"></i>
+                                                </button>
+                                            </form>
+                                        {% elif not token.is_active %}
+                                            <form method="POST" action="{{ url_for('web.toggle_token', token_id=token.id) }}" style="display: inline;">
+                                                <button type="submit" class="btn btn-success btn-sm" title="启用">
+                                                    <i class="bi bi-play"></i>
+                                                </button>
+                                            </form>
+                                        {% endif %}
+
+                                        <form method="POST" action="{{ url_for('web.delete_token', token_id=token.id) }}" style="display: inline;">
+                                            <button type="submit" class="btn btn-danger btn-sm"
+                                                    onclick="return confirm('确定删除Token【{{ token.name }}】吗？此操作不可撤销！')"
+                                                    title="删除">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 分页 -->
+                {% if pagination.pages > 1 %}
+                <nav>
+                    <ul class="pagination justify-content-center">
+                        {% if pagination.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('web.token_management', page=pagination.prev_num) }}">
+                                <i class="bi bi-chevron-left"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+
+                        {% for page_num in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+                            {% if page_num %}
+                                <li class="page-item {% if page_num == pagination.page %}active{% endif %}">
+                                    <a class="page-link" href="{{ url_for('web.token_management', page=page_num) }}">{{ page_num }}</a>
+                                </li>
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">…</span></li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if pagination.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('web.token_management', page=pagination.next_num) }}">
+                                <i class="bi bi-chevron-right"></i>
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+
+                {% else %}
+                <div class="text-center py-5">
+                    <i class="bi bi-key display-1 text-muted"></i>
+                    <h4 class="mt-3">暂无Token</h4>
+                    <p class="text-muted">请创建您的第一个API Token</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- API使用指南 -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-code me-2"></i>API使用指南
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>HTTP Header方式：</h6>
+                        <pre class="bg-light p-3 rounded"><code>Authorization: Bearer YOUR_TOKEN_HERE</code></pre>
+
+                        <h6 class="mt-3">示例代码：</h6>
+                        <pre class="bg-light p-3 rounded"><code># 获取白名单数据
+curl -X GET "{{ request.host_url }}api/whitelist/sync" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+
+# 记录登录事件
+curl -X POST "{{ request.host_url }}api/login/log" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "player_name": "TestPlayer",
+    "player_uuid": "12345678-1234-1234-1234-123456789012",
+    "player_ip": "192.168.1.100",
+    "allowed": true,
+    "check_type": "whitelist"
+  }'</code></pre>
+                    </div>
+
+                    <div class="col-md-6">
+                        <h6>安全提醒：</h6>
+                        <div class="alert alert-warning">
+                            <i class="bi bi-exclamation-triangle me-1"></i>
+                            <strong>重要安全建议：</strong>
+                            <ul class="mb-0 mt-2">
+                                <li>请勿将Token泄露给他人</li>
+                                <li>定期更换Token以增强安全性</li>
+                                <li>根据最小权限原则分配Token权限</li>
+                                <li>废弃的Token请及时删除</li>
+                                <li>在HTTPS环境下使用API</li>
+                            </ul>
+                        </div>
+
+                        <h6>支持的操作：</h6>
+                        <ul class="list-group list-group-flush">
+                            <li class="list-group-item">
+                                <i class="bi bi-check-circle text-success me-2"></i>
+                                <strong>GET /api/health</strong> - 健康检查（无需Token）
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-check-circle text-success me-2"></i>
+                                <strong>GET /api/whitelist/sync</strong> - 同步白名单（需要读取权限）
+                            </li>
+                            <li class="list-group-item">
+                                <i class="bi bi-check-circle text-success me-2"></i>
+                                <strong>POST /api/login/log</strong> - 记录登录事件（需要写入权限）
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新Token显示模态框 -->
+{% if new_token %}
+<div class="modal fade show" id="tokenModal" tabindex="-1" style="display: block; background-color: rgba(0,0,0,0.5);">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-warning text-dark">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle me-2"></i>Token已创建
+                </h5>
+                <button type="button" class="btn-close" onclick="closeTokenModal()"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning mb-3">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    <strong>此Token只会显示一次，请立即复制保存！</strong>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Token名称</label>
+                    <input type="text" class="form-control" value="{{ new_token.name }}" readonly>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-bold">API Token</label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="modalTokenValue" value="{{ new_token.token }}" readonly>
+                        <button class="btn btn-outline-primary" type="button" onclick="copyToken()">
+                            <i class="bi bi-clipboard"></i> 复制
+                        </button>
+                    </div>
+                </div>
+
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-1"></i>
+                    <strong>有效期至:</strong> {{ new_token.expires_at_formatted }}
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success" onclick="copyToken()">
+                    <i class="bi bi-clipboard-check me-1"></i> 已复制
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="closeTokenModal()">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+// 复制Token
+function copyToken() {
+    const tokenValue = document.getElementById('modalTokenValue').value;
+    navigator.clipboard.writeText(tokenValue).then(() => {
+        alert('Token已复制到剪贴板！');
+    }).catch(err => {
+        console.error('复制失败:', err);
+        alert('复制失败，请手动复制');
+    });
+}
+
+// 关闭Token模态框
+function closeTokenModal() {
+    const modal = document.getElementById('tokenModal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// 页面加载后如果有Token模态框，自动显示
+document.addEventListener('DOMContentLoaded', function() {
+    {% if new_token %}
+    const modal = document.getElementById('tokenModal');
+    if (modal) {
+        modal.style.display = 'block';
+    }
+    {% endif %}
+});
+
+// 按ESC键关闭模态框
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeTokenModal();
+    }
+});
+</script>
+
+<style>
+.modal {
+    z-index: 9999;
+}
+.badge {
+    font-size: 0.75em;
+}
+.table th {
+    font-weight: 600;
+    background-color: #f8f9fa;
+}
+.list-group-item.active {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+</style>
+{% endblock %}
