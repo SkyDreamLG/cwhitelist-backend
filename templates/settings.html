@@ -9,23 +9,76 @@
 
         <div class="alert alert-info">
             <h5><i class="bi bi-info-circle"></i> 系统信息</h5>
-            <p class="mb-0">修改设置后点击"保存设置"按钮生效</p>
+            <p class="mb-0">请根据需要修改系统设置</p>
         </div>
     </div>
 </div>
 
-<form method="POST" action="{{ url_for('web.save_settings') }}">
-    {% for category, settings in settings_by_category.items() %}
-    <div class="row mb-4">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header">
-                    <h5 class="card-title mb-0">{{ category|title }}设置</h5>
-                </div>
-                <div class="card-body">
+<div class="row">
+    <!-- 设置导航 -->
+    <div class="col-md-3 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="list-group list-group-flush">
+    <a href="{{ url_for('web.settings') }}" class="list-group-item list-group-item-action">
+        <i class="bi bi-gear me-2"></i>常规设置
+    </a>
+    <a href="{{ url_for('web.timezone_settings') }}" class="list-group-item list-group-item-action">
+        <i class="bi bi-clock me-2"></i>时区设置
+    </a>
+{#    <a href="#" class="list-group-item list-group-item-action">#}
+{#        <i class="bi bi-shield-lock me-2"></i>安全设置#}
+{#    </a>#}
+{#    <a href="#" class="list-group-item list-group-item-action">#}
+{#        <i class="bi bi-database me-2"></i>数据库设置#}
+{#    </a>#}
+{#    <a href="#" class="list-group-item list-group-item-action">#}
+{#        <i class="bi bi-bell me-2"></i>通知设置#}
+{#    </a>#}
+</div>
+            </div>
+        </div>
+
+        <!-- 当前时区信息 -->
+        <div class="card mt-3">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="bi bi-clock-history me-2"></i>当前时区
+                </h6>
+                <p class="mb-1">
+                    <strong>{{ timezone_info.timezone_name }}</strong>
+                </p>
+                <p class="mb-1 small text-muted">
+                    {{ current_timezone }}
+                </p>
+                <p class="mb-0 small">
+                    UTC{{ '+' if timezone_info.utc_offset >= 0 else '' }}{{ '%.1f'|format(timezone_info.utc_offset) }}
+                </p>
+                <a href="{{ url_for('web.timezone_settings') }}" class="btn btn-sm btn-outline-primary mt-2 w-100">
+                    <i class="bi bi-pencil me-1"></i>修改时区
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置内容 -->
+    <div class="col-md-9">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-gear me-2"></i>常规设置
+                </h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('web.save_settings') }}">
+                    {% for category, settings in settings_by_category.items() %}
+                    {% if category != 'system' %} {# 隐藏系统设置，单独处理 #}
+                    <h5 class="mb-3">{{ category|title }}设置</h5>
+
                     {% for setting in settings %}
+                    {% if setting.key != 'timezone' %} {# 时区设置单独页面 #}
                     <div class="row mb-3">
-                        <div class="col-md-4">
+                        <div class="col-md-6">
                             <label for="setting_{{ setting.key }}" class="form-label">
                                 {{ setting.description }}
                             </label>
@@ -43,26 +96,24 @@
                             <div class="form-text">Key: {{ setting.key }}</div>
                         </div>
                     </div>
+                    {% endif %}
                     {% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endfor %}
 
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-body text-center">
-                    <button type="submit" class="btn btn-primary btn-lg">
-                        <i class="bi bi-save"></i> 保存设置
-                    </button>
-                    <a href="{{ url_for('web.dashboard') }}" class="btn btn-secondary btn-lg ms-2">
-                        <i class="bi bi-x-circle"></i> 取消
-                    </a>
-                </div>
+                    <hr class="my-4">
+                    {% endif %}
+                    {% endfor %}
+
+                    <div class="text-center">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save"></i> 保存设置
+                        </button>
+                        <a href="{{ url_for('web.dashboard') }}" class="btn btn-secondary ms-2">
+                            <i class="bi bi-x-circle"></i> 取消
+                        </a>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
-</form>
+</div>
 {% endblock %}

@@ -1,0 +1,614 @@
+{% extends "layout.html" %}
+
+{% block title %}时区设置{% endblock %}
+
+{% block extra_css %}
+<style>
+    .timezone-section {
+        margin-bottom: 2rem;
+        padding: 1.5rem;
+        background: #f8f9fa;
+        border-radius: 10px;
+        border-left: 4px solid #4facfe;
+    }
+
+    .timezone-card {
+        cursor: pointer;
+        transition: all 0.3s;
+        border: 2px solid #e9ecef;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .timezone-card:hover {
+        border-color: #4facfe;
+        background-color: rgba(79, 172, 254, 0.05);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .timezone-card.active {
+        border-color: #198754;
+        background-color: rgba(25, 135, 84, 0.1);
+    }
+
+    .timezone-name {
+        font-weight: bold;
+        color: #212529;
+    }
+
+    .timezone-desc {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-bottom: 0.25rem;
+    }
+
+    .timezone-offset {
+        font-size: 0.85rem;
+        color: #495057;
+        font-family: 'Courier New', monospace;
+    }
+
+    .time-current {
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: #198754;
+    }
+
+    .time-utc {
+        font-size: 0.9rem;
+        color: #6c757d;
+    }
+
+    .search-box {
+        position: relative;
+        margin-bottom: 1rem;
+    }
+
+    .search-box .bi-search {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #6c757d;
+    }
+
+    .search-box input {
+        padding-left: 40px;
+    }
+
+    .timezone-group {
+        margin-bottom: 2rem;
+    }
+
+    .timezone-group-title {
+        font-size: 1.1rem;
+        font-weight: bold;
+        color: #495057;
+        padding-bottom: 0.5rem;
+        margin-bottom: 1rem;
+        border-bottom: 2px solid #dee2e6;
+    }
+
+    .refresh-btn {
+        cursor: pointer;
+        transition: transform 0.3s;
+    }
+
+    .refresh-btn:hover {
+        transform: rotate(180deg);
+    }
+
+    #timezonePreview {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 10px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    #timezonePreview h4 {
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">
+            <i class="bi bi-clock me-2"></i>时区设置
+        </h1>
+
+        <div class="alert alert-info">
+            <h5><i class="bi bi-info-circle"></i> 时区设置说明</h5>
+            <p class="mb-0">
+                系统时间统一使用UTC存储，这里设置的是显示时区。<br>
+                修改后，所有时间显示将自动转换为所选时区的时间。
+            </p>
+        </div>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <!-- 当前时区预览 -->
+    <div class="col-md-12">
+        <div id="timezonePreview">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h4>当前时区设置</h4>
+                    <p class="mb-1">
+                        <strong>时区:</strong> {{ timezone_info.timezone }}
+                        <span class="badge bg-light text-dark ms-2">
+                            UTC{{ '+' if timezone_info.utc_offset >= 0 else '' }}{{ '%.1f'|format(timezone_info.utc_offset) }}
+                        </span>
+                    </p>
+                    <p class="mb-1 time-current">
+                        <i class="bi bi-clock"></i> 本地时间: {{ timezone_info.current_local }}
+                    </p>
+                    <p class="mb-0 time-utc">
+                        <i class="bi bi-globe"></i> UTC时间: {{ timezone_info.current_utc }}
+                    </p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <button class="btn btn-light refresh-btn" onclick="refreshTime()" title="刷新时间">
+                        <i class="bi bi-arrow-clockwise"></i> 刷新
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- 时区选择表单 -->
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-globe me-2"></i>选择时区
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- 搜索框 -->
+                <div class="search-box">
+                    <i class="bi bi-search"></i>
+                    <input type="text" id="timezoneSearch" class="form-control"
+                           placeholder="搜索时区 (例如: Shanghai, London, New York)">
+                </div>
+
+                <!-- 常用时区 -->
+                <div id="timezoneList">
+                    {% for group_name, timezones in common_timezones.items() %}
+                    <div class="timezone-group">
+                        <div class="timezone-group-title">
+                            <i class="bi bi-{{ 'star' if group_name == '常用时区' else 'geo' if group_name == '美洲' else 'building' if group_name == '欧洲' else 'water' }} me-1"></i>
+                            {{ group_name }}
+                        </div>
+
+                        <div class="row">
+                            {% for tz_id, tz_desc in timezones %}
+                            {% set is_active = tz_id == current_timezone %}
+                            <div class="col-md-6 mb-2">
+                                <div class="timezone-card {{ 'active' if is_active else '' }}"
+                                     data-timezone="{{ tz_id }}"
+                                     data-timezone-desc="{{ tz_desc }}"
+                                     onclick="selectTimezone('{{ tz_id }}', '{{ tz_desc }}')">
+                                    <div class="timezone-name">
+                                        {{ tz_desc }}
+                                        {% if is_active %}
+                                        <span class="badge bg-success ms-1">当前</span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="timezone-desc">{{ tz_id }}</div>
+                                    <div class="timezone-offset" id="offset-{{ tz_id|replace('/', '_') }}">
+                                        计算中...
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                    <!-- 所有时区 (折叠) -->
+                    <div class="timezone-group">
+                        <div class="timezone-group-title">
+                            <a href="#" class="text-decoration-none" data-bs-toggle="collapse" data-bs-target="#allTimezones">
+                                <i class="bi bi-list me-1"></i>所有时区
+                                <i class="bi bi-chevron-down float-end"></i>
+                            </a>
+                        </div>
+
+                        <div class="collapse" id="allTimezones">
+                            <div class="search-box mt-2">
+                                <i class="bi bi-search"></i>
+                                <input type="text" id="allTimezoneSearch" class="form-control"
+                                       placeholder="在所有时区中搜索...">
+                            </div>
+
+                            <div class="row" id="allTimezoneList" style="max-height: 400px; overflow-y: auto;">
+                                <!-- 动态加载所有时区 -->
+                                <div class="col-md-12 text-center py-3">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">加载中...</span>
+                                    </div>
+                                    <p class="text-muted mt-2">正在加载时区列表...</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 设置表单 -->
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-gear me-2"></i>时区设置
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="timezoneForm" method="POST" action="{{ url_for('web.save_timezone') }}">
+                    <div class="mb-3">
+                        <label class="form-label">当前选择的时区</label>
+                        <div class="form-control" id="selectedTimezoneDisplay" style="background-color: #f8f9fa;">
+                            <strong>{{ timezone_info.timezone_name }}</strong>
+                            <br>
+                            <small class="text-muted">{{ current_timezone }}</small>
+                        </div>
+                        <input type="hidden" id="selectedTimezone" name="timezone" value="{{ current_timezone }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">时区描述</label>
+                        <input type="text" class="form-control" id="timezoneDescription"
+                               value="{{ timezone_info.timezone }}" readonly>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">UTC偏移</label>
+                        <input type="text" class="form-control" id="timezoneOffset"
+                               value="UTC{{ '+' if timezone_info.utc_offset >= 0 else '' }}{{ '%.1f'|format(timezone_info.utc_offset) }}" readonly>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label">预览时间</label>
+                        <div class="alert alert-light">
+                            <p class="mb-1"><strong>本地时间:</strong> <span id="previewLocalTime">{{ timezone_info.current_local }}</span></p>
+                            <p class="mb-0"><strong>UTC时间:</strong> <span id="previewUtcTime">{{ timezone_info.current_utc }}</span></p>
+                        </div>
+                    </div>
+
+                    <div class="d-grid gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-save me-1"></i>保存时区设置
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary" onclick="resetTimezone()">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>重置为UTC
+                        </button>
+                    </div>
+                </form>
+
+                <div class="alert alert-warning mt-3">
+                    <h6><i class="bi bi-exclamation-triangle me-2"></i>注意事项</h6>
+                    <p class="mb-0 small">
+                        修改时区设置会影响所有时间显示，但不会修改数据库中存储的时间数据（始终为UTC）。
+                        保存后需要刷新页面才能看到所有时间的更新。
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 成功模态框 -->
+<div class="modal fade" id="successModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-success">
+                    <i class="bi bi-check-circle me-2"></i>设置已保存
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>时区设置已成功保存。</p>
+                <p class="mb-0">建议刷新页面以查看完整效果。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">关闭</button>
+                <button type="button" class="btn btn-primary" onclick="location.reload()">
+                    <i class="bi bi-arrow-clockwise me-1"></i>刷新页面
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // 当前选择的时区
+    let selectedTimezone = "{{ current_timezone }}";
+    let selectedTimezoneDesc = "{{ timezone_info.timezone }}";
+
+    // 页面加载完成后计算时区偏移
+    document.addEventListener('DOMContentLoaded', function() {
+        // 设置当前选中的时区
+        const currentTz = "{{ current_timezone }}";
+        const currentCard = document.querySelector(`[data-timezone="${currentTz}"]`);
+        if (currentCard) {
+            currentCard.classList.add('active');
+        }
+
+        // 设置表单初始值
+        document.getElementById('selectedTimezone').value = currentTz;
+        document.getElementById('selectedTimezoneDisplay').innerHTML = `
+            <strong>{{ timezone_info.timezone_name }}</strong>
+            <br>
+            <small class="text-muted">{{ current_timezone }}</small>
+        `;
+
+        // 为所有时区卡片计算偏移
+        document.querySelectorAll('.timezone-card').forEach(card => {
+            const tzId = card.dataset.timezone;
+            calculateOffset(tzId);
+        });
+    });
+
+    // 计算时区偏移
+    function calculateOffset(timezoneId) {
+        fetch('/api/timezone/offset?tz=' + encodeURIComponent(timezoneId))
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const elementId = 'offset-' + timezoneId.replace(/\//g, '_');
+                    const element = document.getElementById(elementId);
+                    if (element) {
+                        element.textContent = `UTC${data.offset >= 0 ? '+' : ''}${data.offset.toFixed(1)}`;
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('计算偏移失败:', error);
+            });
+    }
+
+    // 搜索时区
+    document.getElementById('timezoneSearch').addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        const timezoneCards = document.querySelectorAll('.timezone-card');
+
+        timezoneCards.forEach(card => {
+            const timezoneName = card.querySelector('.timezone-name').textContent.toLowerCase();
+            const timezoneDesc = card.querySelector('.timezone-desc').textContent.toLowerCase();
+
+            if (timezoneName.includes(searchTerm) || timezoneDesc.includes(searchTerm)) {
+                card.parentElement.style.display = 'block';
+            } else {
+                card.parentElement.style.display = 'none';
+            }
+        });
+    });
+
+    // 选择时区
+    function selectTimezone(timezoneId, timezoneDesc) {
+        // 更新选中状态
+        document.querySelectorAll('.timezone-card').forEach(card => {
+            card.classList.remove('active');
+        });
+
+        const selectedCard = document.querySelector(`[data-timezone="${timezoneId}"]`);
+        if (selectedCard) {
+            selectedCard.classList.add('active');
+        }
+
+        // 更新表单
+        selectedTimezone = timezoneId;
+        selectedTimezoneDesc = timezoneDesc;
+        document.getElementById('selectedTimezone').value = timezoneId;
+        document.getElementById('selectedTimezoneDisplay').innerHTML = `
+            <strong>${timezoneDesc}</strong>
+            <br>
+            <small class="text-muted">${timezoneId}</small>
+        `;
+        document.getElementById('timezoneDescription').value = timezoneDesc;
+
+        // 获取时区详细信息
+        updateTimezoneInfo(timezoneId);
+    }
+
+    // 更新时区信息
+    function updateTimezoneInfo(timezoneId) {
+        fetch('/api/timezone/test', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ timezone: timezoneId })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                document.getElementById('timezoneOffset').value =
+                    `UTC${data.utc_offset >= 0 ? '+' : ''}${data.utc_offset.toFixed(1)}`;
+                document.getElementById('previewLocalTime').textContent = data.current_local;
+                document.getElementById('previewUtcTime').textContent = data.current_utc;
+            }
+        })
+        .catch(error => {
+            console.error('获取时区信息失败:', error);
+        });
+    }
+
+    // 重置为UTC
+    function resetTimezone() {
+        selectTimezone('UTC', '协调世界时');
+    }
+
+    // 刷新时间显示
+    function refreshTime() {
+        fetch('/api/timezone/refresh')
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const info = data.timezone_info;
+
+                    // 更新预览区域
+                    document.getElementById('timezonePreview').innerHTML = `
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h4>当前时区设置</h4>
+                                <p class="mb-1">
+                                    <strong>时区:</strong> ${info.timezone}
+                                    <span class="badge bg-light text-dark ms-2">
+                                        UTC${info.utc_offset >= 0 ? '+' : ''}${info.utc_offset.toFixed(1)}
+                                    </span>
+                                </p>
+                                <p class="mb-1 time-current">
+                                    <i class="bi bi-clock"></i> 本地时间: ${info.current_local}
+                                </p>
+                                <p class="mb-0 time-utc">
+                                    <i class="bi bi-globe"></i> UTC时间: ${info.current_utc}
+                                </p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button class="btn btn-light refresh-btn" onclick="refreshTime()" title="刷新时间">
+                                    <i class="bi bi-arrow-clockwise"></i> 刷新
+                                </button>
+                            </div>
+                        </div>
+                    `;
+
+                    // 更新表单预览
+                    document.getElementById('previewLocalTime').textContent = info.current_local;
+                    document.getElementById('previewUtcTime').textContent = info.current_utc;
+
+                    // 显示成功提示
+                    showToast('时间已刷新', 'success');
+                }
+            })
+            .catch(error => {
+                console.error('刷新时间失败:', error);
+                showToast('刷新失败', 'error');
+            });
+    }
+
+    // 显示提示
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white bg-${type === 'error' ? 'danger' : type} border-0`;
+        toast.setAttribute('role', 'alert');
+        toast.innerHTML = `
+            <div class="d-flex">
+                <div class="toast-body">
+                    <i class="bi bi-${type === 'success' ? 'check-circle' : 'info-circle'} me-2"></i>
+                    ${message}
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        `;
+
+        document.body.appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+
+        setTimeout(() => {
+            toast.remove();
+        }, 3000);
+    }
+
+    // 表单提交处理
+    document.getElementById('timezoneForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        const formData = new FormData(this);
+
+        fetch(this.action, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 显示成功模态框
+                const successModal = new bootstrap.Modal(document.getElementById('successModal'));
+                successModal.show();
+            } else {
+                showToast(data.message || '保存失败', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('保存失败:', error);
+            showToast('保存失败: ' + error.message, 'error');
+        });
+    });
+
+    // 加载所有时区
+    document.querySelector('[data-bs-target="#allTimezones"]').addEventListener('click', function() {
+        const allTimezoneList = document.getElementById('allTimezoneList');
+        if (allTimezoneList.children.length === 1) { // 只有加载提示
+            allTimezoneList.innerHTML = '<div class="col-md-12 text-center py-3"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">加载中...</span></div><p class="text-muted mt-2">正在加载时区列表...</p></div>';
+
+            fetch('/api/timezone/list')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        let html = '';
+                        data.timezones.forEach(tz => {
+                            const isCurrent = tz === selectedTimezone;
+                            html += `
+                                <div class="col-md-12 mb-1">
+                                    <div class="timezone-card ${isCurrent ? 'active' : ''}"
+                                         onclick="selectTimezone('${tz}', '${tz}')"
+                                         data-timezone="${tz}">
+                                        <div class="timezone-name">
+                                            ${tz}
+                                            ${isCurrent ? '<span class="badge bg-success ms-1">当前</span>' : ''}
+                                        </div>
+                                        <div class="timezone-offset" id="offset-all-${tz.replace(/\//g, '_')}">
+                                            计算中...
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+
+                        allTimezoneList.innerHTML = html;
+
+                        // 计算所有时区的偏移
+                        data.timezones.forEach(tz => {
+                            calculateOffset(tz);
+                        });
+                    } else {
+                        allTimezoneList.innerHTML = `<div class="col-md-12 text-center py-3"><p class="text-danger">加载失败: ${data.message}</p></div>`;
+                    }
+                })
+                .catch(error => {
+                    console.error('加载时区列表失败:', error);
+                    allTimezoneList.innerHTML = `<div class="col-md-12 text-center py-3"><p class="text-danger">加载失败: ${error.message}</p></div>`;
+                });
+        }
+    });
+
+    // 搜索所有时区
+    document.getElementById('allTimezoneSearch').addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        const cards = document.querySelectorAll('#allTimezoneList .timezone-card');
+
+        cards.forEach(card => {
+            const text = card.textContent.toLowerCase();
+            if (text.includes(searchTerm)) {
+                card.parentElement.style.display = 'block';
+            } else {
+                card.parentElement.style.display = 'none';
+            }
+        });
+    });
+</script>
+{% endblock %}

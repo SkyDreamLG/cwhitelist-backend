@@ -9,8 +9,8 @@ class Config:
     # 安全设置 - 提供默认值
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
 
-    # 时区配置
-    TIMEZONE = os.environ.get('TIMEZONE', 'UTC')  # 默认UTC
+    # 时区配置 - 默认从环境变量获取，但可以在设置页面修改
+    TIMEZONE = os.environ.get('TIMEZONE', 'UTC')
 
     # 数据库配置
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
@@ -42,18 +42,7 @@ class Config:
     CACHE_TYPE = 'simple'
     CACHE_DEFAULT_TIMEOUT = 300
 
-    # 确保上传文件夹存在
-    @staticmethod
-    def init_app(app):
-        # 创建必要的文件夹
-        folders = [
-            app.config['UPLOAD_FOLDER'],
-            os.path.dirname(app.config['LOG_FILE']),
-            app.instance_path
-        ]
-
-        for folder in folders:
-            Path(folder).mkdir(parents=True, exist_ok=True)
+    # 不再需要 init_app 方法，初始化逻辑移到 app.py
 
 
 class DevelopmentConfig(Config):
@@ -61,7 +50,7 @@ class DevelopmentConfig(Config):
     DEBUG = True
     SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(Path(__file__).parent, 'instance', 'cwhitelist_dev.db')
     SECRET_KEY = 'dev-secret-key-do-not-use-in-production'
-    TIMEZONE = os.environ.get('TIMEZONE', 'Asia/Shanghai')  # 开发环境默认中国时区
+    TIMEZONE = os.environ.get('TIMEZONE', 'Asia/Shanghai')
 
 
 class TestingConfig(Config):
@@ -79,7 +68,6 @@ class ProductionConfig(Config):
     # 从环境变量获取密钥
     SECRET_KEY = os.environ.get('SECRET_KEY')
     if not SECRET_KEY:
-        # 修改这里：不要直接抛出异常，而是使用默认值或记录警告
         SECRET_KEY = 'dev-secret-key-for-production-use-strong-key'
         print("警告：SECRET_KEY未设置，使用默认值。生产环境请设置SECRET_KEY环境变量。")
 

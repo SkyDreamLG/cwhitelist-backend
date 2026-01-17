@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, flash, redirect, url_for
+from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify
 from flask_login import login_required, current_user
 from sqlalchemy import desc, or_
 from datetime import datetime
@@ -7,6 +7,7 @@ import json
 from werkzeug.utils import secure_filename
 import os
 
+from config import config
 from models.database import db
 from models.whitelist import WhitelistEntry
 from models.setting import Setting
@@ -690,3 +691,206 @@ def timezone_info():
     from utils.timezone import get_timezone_info
     info = get_timezone_info()
     return jsonify(info)
+
+
+# 在 web_bp 中添加时区设置路由
+
+@web_bp.route('/settings/timezone', methods=['GET'])
+@login_required
+def timezone_settings():
+    """时区设置页面"""
+    if not current_user.is_admin():
+        flash('需要管理员权限', 'error')
+        return redirect(url_for('web.dashboard'))
+
+    from utils.timezone import get_common_timezones, get_timezone_info
+
+    return render_template('settings_timezone.html',
+                           common_timezones=get_common_timezones(),
+                           timezone_info=get_timezone_info())
+
+
+@web_bp.route('/settings/timezone/save', methods=['POST'])
+@login_required
+def save_timezone():
+    """保存时区设置"""
+    if not current_user.is_admin():
+        return jsonify({
+            'success': False,
+            'message': '需要管理员权限'
+        }), 403
+
+    try:
+        timezone_str = request.form.get('timezone', '').strip()
+
+        if not timezone_str:
+            return jsonify({
+                'success': False,
+                'message': '请选择时区'
+            }), 400
+
+        # 验证时区有效性
+        import pytz
+        try:
+            pytz.timezone(timezone_str)
+        except pytz.UnknownTimeZoneError:
+            return jsonify({
+                'success': False,
+                'message': '无效的时区'
+            }), 400
+
+        # 保存到数据库
+        from models.setting import Setting
+        Setting.set_value('timezone', timezone_str, '系统时区设置', 'system')
+
+        # 更新应用配置（需要重启应用才能完全生效）
+        # 这里我们先保存到数据库，应用会在下次请求时加载
+
+        # 记录操作日志
+        log = Log(
+            level='info',
+            message=f'更新系统时区设置: {timezone_str}',
+            source='web',
+            ip_address=request.remote_addr,
+            user_id=current_user.id,
+            details=f'old_timezone: {config.get("TIMEZONE")}, new_timezone: {timezone_str}'
+        )
+        db.session.add(log)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': '时区设置已保存',
+            'timezone': timezone_str
+        })
+
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({
+            'success': False,
+            'message': f'保存失败: {str(e)}'
+        }), 500
+
+
+@web_bp.route('/settings/timezone/test', methods=['POST'])
+@login_required
+def test_timezone():
+    """测试时区设置"""
+    if not current_user.is_admin():
+        return jsonify({
+            'success': False,
+            'message': '需要管理员权限'
+        }), 403
+
+    try:
+        timezone_str = request.json.get('timezone', '').strip()
+
+        if not timezone_str:
+            return jsonify({
+                'success': False,
+                'message': '请提供时区'
+            }), 400
+
+        # 验证时区有效性
+        import pytz
+        from datetime import datetime
+
+        try:
+            tz = pytz.timezone(timezone_str)
+
+            # 获取当前时间
+            now_utc = datetime.now(pytz.UTC)
+            now_local = now_utc.astimezone(tz)
+
+            return jsonify({
+                'success': True,
+                'timezone': str(tz),
+                'utc_offset': now_local.utcoffset().total_seconds() / 3600,
+                'current_utc': now_utc.strftime('%Y-%m-%d %H:%M:%S'),
+                'current_local': now_local.strftime('%Y-%m-%d %H:%M:%S')
+            })
+
+        except pytz.UnknownTimeZoneError:
+            return jsonify({
+                'success': False,
+                'message': '无效的时区'
+            }), 400
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'测试失败: {str(e)}'
+        }), 500
+
+
+@web_bp.route('/api/timezone/offset')
+@login_required
+def get_timezone_offset():
+    """获取时区偏移量"""
+    try:
+        import pytz
+        from datetime import datetime
+
+        timezone_str = request.args.get('tz', 'UTC')
+
+        try:
+            tz = pytz.timezone(timezone_str)
+            now_utc = datetime.now(pytz.UTC)
+            now_local = now_utc.astimezone(tz)
+            offset = now_local.utcoffset().total_seconds() / 3600
+
+            return jsonify({
+                'success': True,
+                'timezone': str(tz),
+                'offset': offset,
+                'current_utc': now_utc.strftime('%Y-%m-%d %H:%M:%S'),
+                'current_local': now_local.strftime('%Y-%m-%d %H:%M:%S')
+            })
+        except pytz.UnknownTimeZoneError:
+            return jsonify({
+                'success': False,
+                'message': '无效的时区'
+            }), 400
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取偏移失败: {str(e)}'
+        }), 500
+
+
+@web_bp.route('/api/timezone/list')
+@login_required
+def get_all_timezones():
+    """获取所有时区列表"""
+    try:
+        import pytz
+
+        # 获取常用时区
+        from utils.timezone import get_common_timezones
+        common_timezones = get_common_timezones()
+
+        # 展平常用时区列表
+        common_tz_list = []
+        for group in common_timezones.values():
+            for tz_id, _ in group:
+                common_tz_list.append(tz_id)
+
+        # 获取所有时区，但排除已在常用列表中的
+        all_timezones = pytz.all_timezones
+        other_timezones = [tz for tz in all_timezones if tz not in common_tz_list]
+
+        # 合并列表：常用时区在前，其他在后
+        all_timezones_sorted = common_tz_list + other_timezones
+
+        return jsonify({
+            'success': True,
+            'timezones': all_timezones_sorted[:200],  # 限制数量，避免响应过大
+            'total': len(all_timezones_sorted)
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取时区列表失败: {str(e)}'
+        }), 500
