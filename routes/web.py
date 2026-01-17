@@ -324,31 +324,79 @@ def logs():
 @web_bp.route('/logs/clear', methods=['POST'])
 @login_required
 def clear_logs():
-    """清空日志"""
+    """清空日志 - 修复版本"""
     if not current_user.is_admin():
         flash('需要管理员权限', 'error')
         return redirect(url_for('web.logs'))
 
+    # 检查是否为测试请求
+    is_test = request.form.get('test') == 'true'
+
     try:
-        # 删除所有日志
-        num_deleted = Log.query.delete()
-        db.session.commit()
+        # 获取当前日志总数
+        total_logs = Log.query.count()
+
+        if is_test:
+            # 测试模式，不实际删除
+            flash(f'测试模式：当前有 {total_logs} 条日志，点击确认后将清空', 'info')
+            return redirect(url_for('web.logs'))
+
+        if total_logs == 0:
+            flash('没有日志可清空', 'info')
+            return redirect(url_for('web.logs'))
+
+        # 使用更可靠的方式删除日志
+        deleted_count = 0
+
+        # 方法1：分批删除（更安全）
+        batch_size = 100
+        while True:
+            # 获取一批日志
+            batch = Log.query.limit(batch_size).all()
+            if not batch:
+                break
+
+            # 逐个删除
+            for log in batch:
+                db.session.delete(log)
+
+            try:
+                db.session.commit()
+                deleted_count += len(batch)
+                print(f"已删除 {len(batch)} 条日志，累计 {deleted_count} 条")
+            except Exception as e:
+                db.session.rollback()
+                print(f"删除批次失败: {e}")
+                # 尝试单个删除
+                for log in batch:
+                    try:
+                        db.session.delete(log)
+                        db.session.commit()
+                        deleted_count += 1
+                    except:
+                        db.session.rollback()
+                        continue
+
+        # 验证删除结果
+        remaining_count = Log.query.count()
 
         # 记录操作日志
-        log = Log(
+        operation_log = Log(
             level='warning',
-            message='清空所有日志',
+            message=f'管理员清空日志，删除了 {deleted_count} 条记录',
             source='web',
             ip_address=request.remote_addr,
             user_id=current_user.id,
-            details=f'deleted_count: {num_deleted}'
+            details=f'user: {current_user.username}, cleared: {deleted_count}, remaining: {remaining_count}'
         )
-        db.session.add(log)
+        db.session.add(operation_log)
         db.session.commit()
 
-        flash(f'已清空 {num_deleted} 条日志', 'success')
+        flash(f'成功清空 {deleted_count} 条日志，剩余 {remaining_count} 条', 'success')
+
     except Exception as e:
         db.session.rollback()
+        print(f"清空日志异常: {e}")
         flash(f'清空日志失败: {str(e)}', 'error')
 
     return redirect(url_for('web.logs'))

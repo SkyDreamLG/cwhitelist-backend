@@ -23,7 +23,8 @@
     <div class="col-md-12">
         <div class="card">
             <div class="card-body">
-                <form method="GET" class="row g-3">
+                <!-- 筛选表单 -->
+                <form method="GET" class="row g-3" id="filterForm">
                     <div class="col-md-3">
                         <label class="form-label">日志级别</label>
                         <select class="form-select" name="level">
@@ -45,15 +46,15 @@
                         </select>
                     </div>
 
-                    <div class="col-md-4 d-flex align-items-end">
+                    <div class="col-md-6 d-flex align-items-end">
                         <button type="submit" class="btn btn-primary me-2">筛选</button>
                         <a href="{{ url_for('web.logs') }}" class="btn btn-secondary me-2">重置</a>
+
                         {% if current_user.is_admin() %}
-                        <form method="POST" action="{{ url_for('web.clear_logs') }}"
-                              onsubmit="return confirm('确定要清空所有日志吗？此操作不可撤销！');"
-                              style="display: inline;">
-                            <button type="submit" class="btn btn-danger">清空日志</button>
-                        </form>
+                        <!-- 清空日志按钮 - 使用简单版本，避免模态框问题 -->
+                        <button type="button" class="btn btn-danger" onclick="simpleClearLogs()">
+                            清空日志
+                        </button>
                         {% endif %}
                     </div>
                 </form>
@@ -215,4 +216,97 @@
         </div>
     </div>
 </div>
+
+<!-- 清空日志的隐藏表单 -->
+<form id="clearLogsForm" method="POST" action="{{ url_for('web.clear_logs') }}" style="display: none;">
+    {% if csrf_token %}
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    {% endif %}
+</form>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// 简单版本清空日志函数
+function simpleClearLogs() {
+    if (confirm('⚠️ 确定要清空所有日志吗？此操作不可撤销！\n\n当前共有 {{ pagination.total }} 条日志将被删除。')) {
+        // 显示加载状态
+        const btn = document.querySelector('.btn-danger[onclick="simpleClearLogs()"]');
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> 清空中...';
+        btn.disabled = true;
+
+        // 提交表单
+        document.getElementById('clearLogsForm').submit();
+
+        // 如果表单提交失败，恢复按钮状态
+        setTimeout(() => {
+            if (btn.disabled) {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+                alert('清空日志请求可能已发送，请查看页面刷新后的结果。');
+            }
+        }, 5000);
+    }
+}
+
+// 调试函数：测试清空日志功能
+function testClearFunction() {
+    console.log('测试清空日志功能...');
+
+    // 使用fetch测试API
+    fetch('{{ url_for("web.clear_logs") }}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'test=true'
+    })
+    .then(response => {
+        console.log('响应状态:', response.status);
+        console.log('响应URL:', response.url);
+
+        if (response.redirected) {
+            alert('请求已重定向，请检查控制台查看详细信息。');
+            console.log('重定向到:', response.url);
+        } else {
+            return response.text().then(text => {
+                console.log('响应内容:', text);
+                alert('测试完成，请查看控制台。');
+            });
+        }
+    })
+    .catch(error => {
+        console.error('请求失败:', error);
+        alert('测试失败: ' + error.message);
+    });
+}
+
+// 添加键盘快捷键 Ctrl+Shift+C 清空日志（仅开发用）
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.shiftKey && e.key === 'C') {
+        if (confirm('使用快捷键清空日志？')) {
+            simpleClearLogs();
+        }
+    }
+});
+
+// 页面加载时检查日志数量
+document.addEventListener('DOMContentLoaded', function() {
+    const totalLogs = {{ pagination.total }};
+
+    // 如果日志数量很多，显示提示
+    if (totalLogs > 1000) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = 'alert alert-info mb-3';
+        alertDiv.innerHTML = `
+            <i class="bi bi-info-circle me-2"></i>
+            当前有 <strong>${totalLogs.toLocaleString()}</strong> 条日志记录。
+            ${totalLogs > 5000 ? '建议定期清理以保持系统性能。' : ''}
+        `;
+        document.querySelector('.row.mb-4').before(alertDiv);
+    }
+});
+</script>
 {% endblock %}
