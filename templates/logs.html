@@ -128,7 +128,7 @@
                         <tbody>
                             {% for log in logs %}
                             <tr>
-                                <td>{{ log.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                                <td>{{ format_datetime(log.created_at) }}</td>
                                 <td>
                                     <span class="badge bg-{{ 'info' if log.level == 'info' else 'warning' if log.level == 'warning' else 'danger' if log.level == 'error' else 'success' }}">
                                         {{ log.level }}

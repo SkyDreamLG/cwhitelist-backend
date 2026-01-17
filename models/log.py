@@ -1,5 +1,6 @@
 from datetime import datetime
 from .database import db
+from utils.timezone import now_utc
 
 
 class Log(db.Model):
@@ -15,10 +16,11 @@ class Log(db.Model):
     player_name = db.Column(db.String(64), index=True)  # 新增：玩家名称
     player_uuid = db.Column(db.String(36), index=True)  # 新增：玩家UUID
     details = db.Column(db.Text)  # 额外的JSON数据
-    created_at = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    created_at = db.Column(db.DateTime, default=now_utc, index=True)  # 修改这里
 
     def to_dict(self):
         """转换为字典"""
+        from utils.timezone import format_datetime
         return {
             'id': self.id,
             'level': self.level,
@@ -28,7 +30,7 @@ class Log(db.Model):
             'user_id': self.user_id,
             'player_name': self.player_name,
             'player_uuid': self.player_uuid,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_at': format_datetime(self.created_at, '%Y-%m-%d %H:%M:%S') if self.created_at else None,
             'details': self.details
         }
 

@@ -6,7 +6,7 @@ CWhitelist 后端管理系统
 import os
 from pathlib import Path
 
-from flask import Flask
+from flask import Flask, g
 from flask_login import LoginManager
 
 # 创建应用实例
@@ -38,6 +38,21 @@ login_manager.login_message = '请先登录以访问此页面'
 def load_user(user_id):
     from models.user import User
     return User.query.get(int(user_id))
+
+# 注册上下文处理器，使时区函数在模板中可用
+@app.context_processor
+def inject_timezone():
+    from utils.timezone import format_datetime, get_timezone_info
+    return dict(
+        format_datetime=format_datetime,
+        timezone_info=get_timezone_info()
+    )
+
+# 在请求前设置时区
+@app.before_request
+def before_request():
+    from utils.timezone import get_app_timezone
+    g.timezone = get_app_timezone()
 
 # 注册蓝图
 from routes.auth import auth_bp

@@ -154,6 +154,8 @@ def whitelist():
 @login_required
 def add_whitelist():
     """添加白名单条目"""
+    from utils.timezone import parse_datetime, local_to_utc
+
     entry_type = request.form.get('type', '').strip().lower()
     value = request.form.get('value', '').strip()
     description = request.form.get('description', '').strip()
@@ -188,9 +190,12 @@ def add_whitelist():
 
     if expires_at:
         try:
-            entry.expires_at = datetime.fromisoformat(expires_at.replace('Z', '+00:00'))
-        except ValueError:
-            flash('过期时间格式错误', 'error')
+            # 解析本地时间并转换为UTC存储
+            local_dt = parse_datetime(expires_at)
+            if local_dt:
+                entry.expires_at = local_to_utc(local_dt)
+        except Exception as e:
+            flash(f'过期时间格式错误: {str(e)}', 'error')
             return redirect(url_for('web.whitelist'))
 
     db.session.add(entry)
@@ -677,3 +682,11 @@ def export_whitelist():
     except Exception as e:
         flash(f'导出失败: {str(e)}', 'error')
         return redirect(url_for('web.whitelist'))
+
+@web_bp.route('/timezone')
+@login_required
+def timezone_info():
+    """显示时区信息"""
+    from utils.timezone import get_timezone_info
+    info = get_timezone_info()
+    return jsonify(info)

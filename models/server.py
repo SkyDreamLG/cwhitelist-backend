@@ -1,6 +1,7 @@
 from datetime import datetime
 import uuid
 from .database import db
+from utils.timezone import now_utc
 
 
 class Server(db.Model):
@@ -18,8 +19,8 @@ class Server(db.Model):
     is_active = db.Column(db.Boolean, default=True)
     last_sync = db.Column(db.DateTime)
     sync_status = db.Column(db.String(32), default='unknown')  # 'synced', 'failed', 'pending'
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=now_utc)  # 修改这里
+    updated_at = db.Column(db.DateTime, default=now_utc, onupdate=now_utc)  # 修改这里
 
     # 统计信息
     total_logins = db.Column(db.Integer, default=0)
@@ -28,6 +29,7 @@ class Server(db.Model):
 
     def to_dict(self):
         """转换为字典"""
+        from utils.timezone import format_datetime
         return {
             'id': self.id,
             'server_id': self.server_id,
@@ -38,10 +40,10 @@ class Server(db.Model):
             'game_version': self.game_version,
             'mod_version': self.mod_version,
             'is_active': self.is_active,
-            'last_sync': self.last_sync.isoformat() if self.last_sync else None,
+            'last_sync': format_datetime(self.last_sync) if self.last_sync else None,
             'sync_status': self.sync_status,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
+            'created_at': format_datetime(self.created_at) if self.created_at else None,
+            'updated_at': format_datetime(self.updated_at) if self.updated_at else None,
             'stats': {
                 'total_logins': self.total_logins,
                 'allowed_logins': self.allowed_logins,
@@ -51,7 +53,8 @@ class Server(db.Model):
 
     def update_sync_status(self, status, success=True):
         """更新同步状态"""
-        self.last_sync = datetime.utcnow()
+        from utils.timezone import now_utc
+        self.last_sync = now_utc()
         self.sync_status = 'synced' if success else 'failed'
         db.session.commit()
 

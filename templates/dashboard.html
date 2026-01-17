@@ -162,7 +162,7 @@
                                 {% endif %}
                             </div>
                             <div class="text-end">
-                                <small class="text-muted">{{ entry.created_at.strftime('%m-%d %H:%M') }}</small><br>
+                                <small class="text-muted">{{ format_datetime(entry.created_at, '%m-%d %H:%M') }}</small><br>
                                 <span class="badge bg-{{ 'success' if entry.is_active else 'secondary' }}">
                                     {{ '活跃' if entry.is_active else '禁用' }}
                                 </span>
@@ -191,19 +191,25 @@
 </div>
 
 <div class="row">
-    <!-- 最近活动 -->
+    <!-- 时区信息 -->
     <div class="col-md-12">
         <div class="card">
             <div class="card-header">
                 <h5 class="card-title mb-0">
-                    <i class="bi bi-activity me-2"></i>最近活动
+                    <i class="bi bi-clock me-2"></i>系统时间信息
                 </h5>
             </div>
             <div class="card-body">
-                <div class="alert alert-info">
-                    <i class="bi bi-info-circle me-2"></i>
-                    最近活动将显示在系统日志页面中。
-                    <a href="{{ url_for('web.logs') }}" class="alert-link">点击这里查看系统日志</a>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p class="mb-1"><strong>系统时区：</strong>{{ timezone_info.timezone }}</p>
+                        <p class="mb-1"><strong>UTC偏移：</strong>UTC{{ '+' if timezone_info.utc_offset >= 0 else '' }}{{ '%.1f'|format(timezone_info.utc_offset) }}小时</p>
+                        <p class="mb-0"><strong>是否夏令时：</strong>{{ '是' if timezone_info.is_dst else '否' }}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <p class="mb-1"><strong>当前本地时间：</strong>{{ timezone_info.current_local }}</p>
+                        <p class="mb-0"><strong>当前UTC时间：</strong>{{ timezone_info.current_utc }}</p>
+                    </div>
                 </div>
             </div>
         </div>

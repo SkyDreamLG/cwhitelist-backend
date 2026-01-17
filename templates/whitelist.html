@@ -245,7 +245,7 @@
                                     {% if last_login %}
                                     <div class="last-login-time">
                                         <i class="bi bi-clock-history me-1"></i>
-                                        {{ last_login.last_login_at.strftime('%Y-%m-%d %H:%M') }}
+                                        {{ format_datetime(last_login.last_login_at, '%Y-%m-%d %H:%M') }}
                                         <br>
                                         <small>
                                             <span class="last-login-ip">
@@ -267,14 +267,14 @@
                                 </td>
                                 <td>
                                     {% if entry.expires_at %}
-                                    {% set now = namespace(current=now()) %}
-                                    {% if entry.expires_at > now.current %}
+                                    {% set now_utc = now_utc() %}
+                                    {% if entry.expires_at > now_utc %}
                                     <span class="text-success">
-                                        {{ entry.expires_at.strftime('%Y-%m-%d %H:%M') }}
+                                        {{ format_datetime(entry.expires_at, '%Y-%m-%d %H:%M') }}
                                     </span>
                                     {% else %}
                                     <span class="text-danger" title="已过期">
-                                        {{ entry.expires_at.strftime('%Y-%m-%d %H:%M') }}
+                                        {{ format_datetime(entry.expires_at, '%Y-%m-%d %H:%M') }}
                                         <i class="bi bi-exclamation-triangle"></i>
                                     </span>
                                     {% endif %}

@@ -3,6 +3,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import UserMixin
 
 from .database import db
+from utils.timezone import now_utc
 
 
 class User(db.Model, UserMixin):
@@ -15,7 +16,7 @@ class User(db.Model, UserMixin):
     password_hash = db.Column(db.String(256), nullable=False)
     role = db.Column(db.String(32), default='user', nullable=False)
     is_active = db.Column(db.Boolean, default=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=now_utc)  # 修改这里
 
     def set_password(self, password):
         """设置密码"""
@@ -31,13 +32,14 @@ class User(db.Model, UserMixin):
 
     def to_dict(self):
         """转换为字典"""
+        from utils.timezone import format_datetime
         return {
             'id': self.id,
             'username': self.username,
             'email': self.email,
             'role': self.role,
             'is_active': self.is_active,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
+            'created_at': format_datetime(self.created_at) if self.created_at else None,
         }
 
     def __repr__(self):

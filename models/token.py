@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 import secrets
 from .database import db
+from utils.timezone import now_utc
 
 
 class Token(db.Model):
@@ -11,7 +12,7 @@ class Token(db.Model):
     token = db.Column(db.String(64), unique=True, nullable=False, index=True, default=lambda: secrets.token_hex(32))
     name = db.Column(db.String(128), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    created_at = db.Column(db.DateTime, default=now_utc)  # 修改这里
     expires_at = db.Column(db.DateTime)
     last_used = db.Column(db.DateTime)
     is_active = db.Column(db.Boolean, default=True)
@@ -31,29 +32,30 @@ class Token(db.Model):
         if not self.is_active:
             return False
 
-        if self.expires_at and datetime.utcnow() > self.expires_at:
+        if self.expires_at and now_utc() > self.expires_at:
             return False
 
         return True
 
     def update_usage(self, ip_address):
         """更新使用信息"""
-        self.last_used = datetime.utcnow()
+        self.last_used = now_utc()
         self.use_count += 1
         self.last_ip = ip_address
         db.session.commit()
 
     def to_dict(self):
         """转换为字典"""
+        from utils.timezone import format_datetime
         return {
             'id': self.id,
             'name': self.name,
             'token': self.token[:8] + '...' if self.token else None,  # 只显示部分
             'user_id': self.user_id,
             'username': self.user.username if self.user else None,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'expires_at': self.expires_at.isoformat() if self.expires_at else None,
-            'last_used': self.last_used.isoformat() if self.last_used else None,
+            'created_at': format_datetime(self.created_at) if self.created_at else None,
+            'expires_at': format_datetime(self.expires_at) if self.expires_at else None,
+            'last_used': format_datetime(self.last_used) if self.last_used else None,
             'is_active': self.is_active,
             'permissions': {
                 'can_read': self.can_read,
@@ -84,12 +86,9 @@ class Token(db.Model):
                 setattr(token, key, value)
 
         if days_valid:
-            token.expires_at = datetime.utcnow() + timedelta(days=days_valid)
+            token.expires_at = now_utc() + timedelta(days=days_valid)
 
         db.session.add(token)
         db.session.commit()
 
         return token
-
-    def __repr__(self):
-        return f'<Token {self.name} ({self.user.username})>'
