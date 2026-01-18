@@ -36,24 +36,71 @@ def generate_token(user_id, purpose='api'):
 
 
 def validate_token(token_str):
-    """验证JWT令牌"""
-    config = get_jwt_config()
+    """验证令牌 - 支持JWT和简单API Key"""
+    if not token_str:
+        print("[AUTH] ❌ No token provided")
+        return None
+
+    print(f"[AUTH] 🔍 Validating token: {token_str[:16]}...")
 
     try:
-        payload = jwt.decode(token_str, config['secret_key'], algorithms=[config['algorithm']])
-
-        # 检查令牌是否在数据库中
+        # 1. 首先检查数据库中的Token记录
         token = Token.query.filter_by(token=token_str).first()
-        if not token or not token.is_valid():
+
+        if not token:
+            print(f"[AUTH] ❌ Token not found in database")
             return None
+
+        print(f"[AUTH] ✅ Token found: {token.name} (ID: {token.id})")
+
+        # 2. 检查Token是否有效
+        if not token.is_active:
+            print(f"[AUTH] ❌ Token is inactive")
+            return None
+
+        if token.is_expired():
+            print(f"[AUTH] ❌ Token expired at {token.expires_at}")
+            return None
+
+        # 3. 如果是JWT格式，验证JWT签名
+        config = get_jwt_config()
+
+        # 检查是否是JWT格式（包含2个点）
+        if token_str.count('.') == 2:
+            try:
+                # 尝试解码JWT
+                payload = jwt.decode(token_str, config['secret_key'],
+                                     algorithms=[config['algorithm']])
+                print(f"[AUTH] ✅ Valid JWT for user {payload.get('user_id')}")
+
+                # 确保JWT中的用户ID与数据库中的一致
+                if 'user_id' in payload and payload['user_id'] != token.user_id:
+                    print(f"[AUTH] ❌ JWT user_id mismatch")
+                    return None
+
+            except jwt.ExpiredSignatureError:
+                print(f"[AUTH] ❌ JWT token expired")
+                return None
+            except jwt.InvalidTokenError as e:
+                print(f"[AUTH] ❌ Invalid JWT: {e}")
+                return None
+            except Exception as e:
+                print(f"[AUTH] ⚠️  JWT decode error: {e}")
+                # 如果JWT解码失败，但数据库中有记录，仍然接受（降级处理）
+                pass
+        else:
+            # 4. 不是JWT格式，直接使用API Key验证
+            print(f"[AUTH] ✅ Valid API Key (non-JWT)")
+
+        print(f"[AUTH] ✅ Token validation successful")
+        print(f"[AUTH] 📊 Permissions - Read: {token.can_read}, Write: {token.can_write}, Delete: {token.can_delete}")
 
         return token
 
-    except jwt.ExpiredSignatureError:
-        return None
-    except jwt.InvalidTokenError:
-        return None
-    except Exception:
+    except Exception as e:
+        print(f"[AUTH] ❌ Token validation error: {str(e)}")
+        import traceback
+        print(f"[AUTH] Stack trace: {traceback.format_exc()}")
         return None
 
 

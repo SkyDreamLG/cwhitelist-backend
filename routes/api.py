@@ -4,6 +4,7 @@ from datetime import datetime
 import uuid
 
 from models.database import db
+from models.token import Token
 from models.whitelist import WhitelistEntry
 from models.log import Log
 from utils.auth import require_api_auth  # 导入装饰器
@@ -398,14 +399,35 @@ def verify_token():
                 'message': 'Token not found'
             }), 404
 
-        return jsonify({
+        # 构建响应
+        response_data = {
             'success': True,
             'message': 'Token is valid',
-            'token': token.to_dict(),
+            'token': {
+                'id': token.id,
+                'name': token.name,
+                'created_at': token.created_at.isoformat() if token.created_at else None,
+                'expires_at': token.expires_at.isoformat() if token.expires_at else None,
+                'is_active': token.is_active,
+                'permissions': {
+                    'can_read': token.can_read,
+                    'can_write': token.can_write,
+                    'can_delete': token.can_delete,
+                    'can_manage': token.can_manage
+                }
+            },
             'valid_until': token.expires_at.isoformat() if token.expires_at else 'never'
-        })
+        }
+
+        print(f"[API] ✅ Token verification successful for: {token.name}")
+
+        return jsonify(response_data)
 
     except Exception as e:
+        print(f"[API] ❌ Token verification error: {str(e)}")
+        import traceback
+        print(f"[API] Stack trace: {traceback.format_exc()}")
+
         return jsonify({
             'success': False,
             'message': f'Token verification failed: {str(e)}'

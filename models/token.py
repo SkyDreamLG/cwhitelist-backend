@@ -29,14 +29,22 @@ class Token(db.Model):
     last_ip = db.Column(db.String(45))
 
     def is_valid(self):
-        """检查令牌是否有效"""
-        if not self.is_active:
-            return False
+        """检查Token是否有效"""
+        try:
+            # 检查是否激活
+            if not self.is_active:
+                return False
 
-        if self.expires_at and now_utc() > self.expires_at:
-            return False
+            # 检查是否过期
+            if self.expires_at:
+                now = now_utc()
+                if now > self.expires_at:
+                    return False
 
-        return True
+            return True
+        except Exception as e:
+            print(f"[TOKEN] Error checking token validity: {e}")
+            return False
 
     def update_usage(self, ip_address):
         """更新使用信息"""
