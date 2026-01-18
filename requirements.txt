@@ -1,12 +1,11 @@
 # Web框架
 Flask==2.3.3
-Werkzeug==2.3.0  # 固定版本，避免兼容性问题
+Werkzeug==2.3.0
 Flask-SQLAlchemy==3.0.5
 Flask-Login==0.6.2
 Flask-Migrate==4.0.5
 Flask-CORS==4.0.0
 Flask-WTF==1.1.1
-Flask-CSRFProtect==0.1.0
 
 # 数据库
 SQLAlchemy==2.0.19
@@ -24,7 +23,7 @@ email-validator==2.1.0
 
 # 数据处理
 pandas==2.1.1
-numpy==1.24.3
+numpy==2.4.1
 
 # 异步任务
 celery==5.3.4

@@ -3,6 +3,7 @@ import secrets
 from .database import db
 from utils.timezone import now_utc
 import pytz
+import html
 
 
 class Token(db.Model):
@@ -58,10 +59,10 @@ class Token(db.Model):
         from utils.timezone import format_datetime
         return {
             'id': self.id,
-            'name': self.name,
+            'name': html.escape(self.name) if self.name else '',  # 防止XSS
             'token': self.token[:8] + '...' if self.token else None,
             'user_id': self.user_id,
-            'username': self.user.username if self.user else None,
+            'username': html.escape(self.user.username) if self.user and self.user.username else '未知用户',
             'created_at': format_datetime(self.created_at) if self.created_at else None,
             'expires_at': format_datetime(self.expires_at) if self.expires_at else None,
             'last_used': format_datetime(self.last_used) if self.last_used else None,
@@ -74,7 +75,7 @@ class Token(db.Model):
             },
             'stats': {
                 'use_count': self.use_count,
-                'last_ip': self.last_ip
+                'last_ip': html.escape(self.last_ip) if self.last_ip else None
             }
         }
 
@@ -115,6 +116,13 @@ class Token(db.Model):
         from utils.timezone import now_utc
         from datetime import timedelta
 
+        # 清理和验证输入
+        if name:
+            # 移除潜在的恶意字符
+            name = html.escape(name.strip())
+            if len(name) > 128:
+                name = name[:128]
+
         token = cls(
             user_id=user_id,
             name=name,
@@ -127,7 +135,7 @@ class Token(db.Model):
         if permissions:
             for key, value in permissions.items():
                 if hasattr(token, key):
-                    setattr(token, key, value)
+                    setattr(token, key, bool(value))
 
         if days_valid and days_valid > 0:
             token.expires_at = now_utc() + timedelta(days=days_valid)
@@ -138,4 +146,4 @@ class Token(db.Model):
         return token
 
     def __repr__(self):
-        return f'<Token {self.name} ({self.user_id})>'
+        return f'<Token {html.escape(self.name) if self.name else "Unnamed"} ({self.user_id})>'

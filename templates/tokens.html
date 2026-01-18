@@ -78,7 +78,7 @@
                     {% if messages %}
                         {% for category, message in messages %}
                             <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                                {{ message }}
+                                {{ message | safe if category == 'info' else message }}
                                 <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
                             </div>
                         {% endfor %}
@@ -192,9 +192,9 @@
                             <tr>
                                 <td>{{ token.id }}</td>
                                 <td>
-                                    <strong>{{ token.name }}</strong>
+                                    <strong>{{ token.name | e }}</strong>
                                     <div class="small text-muted">
-                                        <i class="bi bi-person me-1"></i>{{ token.user.username if token.user else '未知用户' }}
+                                        <i class="bi bi-person me-1"></i>{{ token.user.username if token.user else '未知用户' | e }}
                                         <br>
                                         权限:
                                         {% if token.can_read %}<span class="badge bg-info me-1">读</span>{% endif %}
@@ -206,15 +206,15 @@
                                 <td>
                                     <code>{{ token.token[:8] }}...{{ token.token[-8:] if token.token|length > 16 else '' }}</code>
                                     <br>
-                                    <small class="text-muted">最后IP: {{ token.last_ip or '未使用' }}</small>
+                                    <small class="text-muted">最后IP: {{ token.last_ip or '未使用' | e }}</small>
                                 </td>
-                                <td>{{ format_datetime(token.created_at) }}</td>
+                                <td>{{ format_datetime(token.created_at) | e }}</td>
                                 <td>
                                     {% if token.expires_at %}
                                         {% if token.is_expired() %}
-                                            <span class="text-danger">{{ format_datetime(token.expires_at) }}</span>
+                                            <span class="text-danger">{{ format_datetime(token.expires_at) | e }}</span>
                                         {% else %}
-                                            {{ format_datetime(token.expires_at) }}
+                                            {{ format_datetime(token.expires_at) | e }}
                                         {% endif %}
                                     {% else %}
                                         <span class="text-muted">永不过期</span>
@@ -224,7 +224,7 @@
                                     <span class="badge bg-secondary">{{ token.use_count }}</span>
                                     {% if token.last_used %}
                                     <br>
-                                    <small class="text-muted">最后使用: {{ format_datetime(token.last_used) }}</small>
+                                    <small class="text-muted">最后使用: {{ format_datetime(token.last_used) | e }}</small>
                                     {% endif %}
                                 </td>
                                 <td>
@@ -256,7 +256,7 @@
 
                                         <form method="POST" action="{{ url_for('web.delete_token', token_id=token.id) }}" style="display: inline;">
                                             <button type="submit" class="btn btn-danger btn-sm"
-                                                    onclick="return confirm('确定删除Token【{{ token.name }}】吗？此操作不可撤销！')"
+                                                    onclick="return confirm('确定删除Token【{{ token.name | e }}】吗？此操作不可撤销！')"
                                                     title="删除">
                                                 <i class="bi bi-trash"></i>
                                             </button>
@@ -398,13 +398,13 @@ curl -X POST "{{ request.host_url }}api/login/log" \
 
                 <div class="mb-3">
                     <label class="form-label fw-bold">Token名称</label>
-                    <input type="text" class="form-control" value="{{ new_token.name }}" readonly>
+                    <input type="text" class="form-control" value="{{ new_token.name | e }}" readonly>
                 </div>
 
                 <div class="mb-3">
                     <label class="form-label fw-bold">API Token</label>
                     <div class="input-group">
-                        <input type="text" class="form-control" id="modalTokenValue" value="{{ new_token.token }}" readonly>
+                        <input type="text" class="form-control" id="modalTokenValue" value="{{ new_token.token | e }}" readonly>
                         <button class="btn btn-outline-primary" type="button" onclick="copyToken()">
                             <i class="bi bi-clipboard"></i> 复制
                         </button>
@@ -413,7 +413,7 @@ curl -X POST "{{ request.host_url }}api/login/log" \
 
                 <div class="alert alert-info">
                     <i class="bi bi-info-circle me-1"></i>
-                    <strong>有效期至:</strong> {{ new_token.expires_at_formatted }}
+                    <strong>有效期至:</strong> {{ new_token.expires_at_formatted | e }}
                 </div>
             </div>
             <div class="modal-footer">
