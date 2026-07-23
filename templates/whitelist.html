@@ -237,14 +237,34 @@
                 <h5 class="card-title mb-0">
                     <i class="bi bi-list-ul me-2"></i>{{ _('白名单列表') }}
                 </h5>
-                <span class="badge bg-primary">{{ _('%(total)s 条记录', total=pagination.total) }}</span>
+                <span class="badge bg-primary me-2">{{ _('%(total)s 条记录', total=pagination.total) }}</span>
             </div>
             <div class="card-body">
                 {% if entries %}
+                <!-- 批量操作栏 -->
+                <div id="batchBar" class="row mb-3" style="display:none;">
+                    <div class="col">
+                        <span id="batchCount" class="me-2 fw-bold text-primary"></span>
+                        <form method="POST" action="{{ url_for('web.batch_whitelist') }}" style="display:inline;">
+                            <input type="hidden" name="entry_ids" id="batchIds">
+                            <input type="hidden" name="action" id="batchAction">
+                            <button type="button" class="btn btn-sm btn-success" onclick="doBatch('enable')">
+                                <i class="bi bi-play"></i> {{ _('批量启用') }}
+                            </button>
+                            <button type="button" class="btn btn-sm btn-warning" onclick="doBatch('disable')">
+                                <i class="bi bi-pause"></i> {{ _('批量禁用') }}
+                            </button>
+                            <button type="button" class="btn btn-sm btn-danger" onclick="doBatch('delete')">
+                                <i class="bi bi-trash"></i> {{ _('批量删除') }}
+                            </button>
+                        </form>
+                    </div>
+                </div>
                 <div class="table-responsive">
                     <table class="table table-hover">
                         <thead>
                             <tr>
+                                <th width="30"><input type="checkbox" id="selectAll" onclick="toggleAll(this)"></th>
                                 <th>{{ _('类型') }}</th>
                                 <th>{{ _('值') }}</th>
                                 <th>{{ _('服务器') }}</th>
@@ -261,6 +281,7 @@
                             {% set entry = item.entry %}
                             {% set last_login = item.last_login %}
                             <tr>
+                                <td><input type="checkbox" class="entry-check" value="{{ entry.id }}" onchange="updateBatchBar()"></td>
                                 <td>
                                     <span class="badge bg-info">{{ entry.type }}</span>
                                 </td>
@@ -516,6 +537,30 @@
 
 {% block extra_js %}
 <script>
+    // 批量操作
+    function toggleAll(el) {
+        document.querySelectorAll('.entry-check').forEach(cb => cb.checked = el.checked);
+        updateBatchBar();
+    }
+
+    function updateBatchBar() {
+        const checked = document.querySelectorAll('.entry-check:checked');
+        const bar = document.getElementById('batchBar');
+        const count = document.getElementById('batchCount');
+        bar.style.display = checked.length > 0 ? '' : 'none';
+        count.textContent = '{{ _('已选择') }} ' + checked.length + ' {{ _('条') }}';
+    }
+
+    function doBatch(action) {
+        const checked = document.querySelectorAll('.entry-check:checked');
+        const ids = Array.from(checked).map(cb => cb.value);
+        if (ids.length === 0) return;
+        if (action === 'delete' && !confirm('{{ _('确定要删除这') }} ' + ids.length + ' {{ _('个条目吗？此操作不可撤销！') }}')) return;
+        document.getElementById('batchIds').value = ids.join(',');
+        document.getElementById('batchAction').value = action;
+        document.getElementById('batchAction').closest('form').submit();
+    }
+
     // {{ _('编辑模态框处理') }}
     document.addEventListener('DOMContentLoaded', function() {
         const editButtons = document.querySelectorAll('.btn-edit');

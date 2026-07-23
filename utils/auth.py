@@ -9,7 +9,6 @@ from models.token import Token
 from models.database import db
 
 
-# JWT配置 - 从应用配置获取
 def get_jwt_config():
     """获取JWT配置"""
     return {
@@ -28,7 +27,7 @@ def generate_token(user_id, purpose='api'):
         'purpose': purpose,
         'exp': datetime.utcnow() + timedelta(hours=config['expiration_hours']),
         'iat': datetime.utcnow(),
-        'jti': secrets.token_hex(16)  # JWT ID
+        'jti': secrets.token_hex(16)
     }
 
     token = jwt.encode(payload, config['secret_key'], algorithm=config['algorithm'])
@@ -38,146 +37,97 @@ def generate_token(user_id, purpose='api'):
 def validate_token(token_str):
     """验证令牌 - 支持JWT和简单API Key"""
     if not token_str:
-        print("[AUTH] ❌ No token provided")
         return None
 
-    print(f"[AUTH] 🔍 Validating token: {token_str[:16]}...")
-
     try:
-        # 1. 首先检查数据库中的Token记录
-        token = Token.query.filter_by(token=token_str).first()
+        # JWT验证
+        if token_str.count('.') == 2:
+            config = get_jwt_config()
+            try:
+                payload = jwt.decode(token_str, config['secret_key'],
+                                     algorithms=[config['algorithm']])
+                user_id = payload.get('user_id')
 
+                token = Token.query.filter_by(
+                    user_id=user_id, is_active=True
+                ).first()
+                if token:
+                    return token
+                return None
+
+            except jwt.ExpiredSignatureError:
+                return None
+            except jwt.InvalidTokenError:
+                return None
+
+        # API Key验证 — 哈希比对
+        token = Token.find_by_raw_token(token_str)
         if not token:
-            print(f"[AUTH] ❌ Token not found in database")
             return None
 
-        print(f"[AUTH] ✅ Token found: {token.name} (ID: {token.id})")
-
-        # 2. 检查Token是否有效
         if not token.is_active:
-            print(f"[AUTH] ❌ Token is inactive")
             return None
 
         if token.is_expired():
-            print(f"[AUTH] ❌ Token expired at {token.expires_at}")
             return None
-
-        # 3. 如果是JWT格式，验证JWT签名
-        config = get_jwt_config()
-
-        # 检查是否是JWT格式（包含2个点）
-        if token_str.count('.') == 2:
-            try:
-                # 尝试解码JWT
-                payload = jwt.decode(token_str, config['secret_key'],
-                                     algorithms=[config['algorithm']])
-                print(f"[AUTH] ✅ Valid JWT for user {payload.get('user_id')}")
-
-                # 确保JWT中的用户ID与数据库中的一致
-                if 'user_id' in payload and payload['user_id'] != token.user_id:
-                    print(f"[AUTH] ❌ JWT user_id mismatch")
-                    return None
-
-            except jwt.ExpiredSignatureError:
-                print(f"[AUTH] ❌ JWT token expired")
-                return None
-            except jwt.InvalidTokenError as e:
-                print(f"[AUTH] ❌ Invalid JWT: {e}")
-                return None
-            except Exception as e:
-                print(f"[AUTH] ⚠️  JWT decode error: {e}")
-                # 如果JWT解码失败，但数据库中有记录，仍然接受（降级处理）
-                pass
-        else:
-            # 4. 不是JWT格式，直接使用API Key验证
-            print(f"[AUTH] ✅ Valid API Key (non-JWT)")
-
-        print(f"[AUTH] ✅ Token validation successful")
-        print(f"[AUTH] 📊 Permissions - Read: {token.can_read}, Write: {token.can_write}, Delete: {token.can_delete}")
 
         return token
 
-    except Exception as e:
-        print(f"[AUTH] ❌ Token validation error: {str(e)}")
-        import traceback
-        print(f"[AUTH] Stack trace: {traceback.format_exc()}")
+    except Exception:
         return None
 
 
-def require_api_auth(f):
-    """API认证装饰器"""
+def require_api_auth(required_permission=None):
+    """API认证装饰器 - 细粒度权限控制
 
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        # 从请求头获取Token
-        auth_header = request.headers.get('Authorization', '')
+    Args:
+        required_permission: 权限字符串或字符串列表（满足任一即可）
+            - "whitelist:read"      单一权限
+            - ["whitelist:read", "whitelist:write"]  任一满足即放行
+    """
 
-        # 支持两种格式：Bearer token 或直接token
-        if auth_header.startswith('Bearer '):
-            token_str = auth_header[7:]
-        else:
-            # 也支持从查询参数获取
-            token_str = request.args.get('token') or auth_header
+    def decorator(f):
+        @wraps(f)
+        def decorated_function(*args, **kwargs):
+            auth_header = request.headers.get('Authorization', '')
 
-        if not token_str:
-            return jsonify({
-                'success': False,
-                'message': 'Authentication required. Please provide a valid token.'
-            }), 401
+            if auth_header.startswith('Bearer '):
+                token_str = auth_header[7:]
+            else:
+                token_str = request.args.get('token') or auth_header
 
-        # 验证Token
-        token = validate_token(token_str)
-        if not token:
-            return jsonify({
-                'success': False,
-                'message': 'Invalid or expired token.'
-            }), 401
+            if not token_str:
+                return jsonify({
+                    'success': False,
+                    'message': 'Authentication required. Please provide a valid token.'
+                }), 401
 
-        # 检查Token权限（根据端点需要）
-        endpoint = request.endpoint or ''
-        method = request.method
+            token = validate_token(token_str)
+            if not token:
+                return jsonify({
+                    'success': False,
+                    'message': 'Invalid or expired token.'
+                }), 401
 
-        # 权限检查逻辑
-        if not check_token_permissions(token, endpoint, method):
-            return jsonify({
-                'success': False,
-                'message': 'Insufficient permissions for this operation.'
-            }), 403
+            if required_permission and not token.has_permission(required_permission):
+                return jsonify({
+                    'success': False,
+                    'message': 'Insufficient permissions for this operation.'
+                }), 403
 
-        # 将Token对象附加到请求上下文
-        request.token = token
+            request.token = token
+            token.update_usage(request.remote_addr)
 
-        # 更新使用统计
-        token.update_usage(request.remote_addr)
+            return f(*args, **kwargs)
 
-        return f(*args, **kwargs)
+        return decorated_function
 
-    return decorated_function
+    if callable(required_permission):
+        f = required_permission
+        required_permission = None
+        return decorator(f)
 
-
-def check_token_permissions(token, endpoint, method):
-    """检查Token权限"""
-    # 如果是只读操作，只需要can_read权限
-    if method == 'GET':
-        if not token.can_read:
-            return False
-
-    # 如果是写入操作，需要can_write权限
-    elif method in ['POST', 'PUT', 'PATCH']:
-        if not token.can_write:
-            return False
-
-    # 如果是删除操作，需要can_delete权限
-    elif method == 'DELETE':
-        if not token.can_delete:
-            return False
-
-    # 管理操作需要can_manage权限
-    if endpoint and 'manage' in endpoint:
-        if not token.can_manage:
-            return False
-
-    return True
+    return decorator
 
 
 def require_auth(roles=None):
@@ -225,32 +175,24 @@ def generate_api_key():
 
 
 def create_server_token(server_id, name, permissions=None, days_valid=365):
-    """为服务器创建API令牌"""
+    """为服务器创建API令牌 - 返回原始token字符串，仅此时可见"""
     from models.server import Server
-    from models.database import db
+    from werkzeug.security import generate_password_hash
+    from utils.permissions import Permission
 
-    # 检查服务器是否存在
     server = Server.query.filter_by(server_id=server_id).first()
     if not server:
         return None
 
-    # 生成Token（这里使用简单的随机字符串，不使用JWT）
-    token_str = secrets.token_hex(32)
+    raw_token = secrets.token_hex(32)
+    token_hash = generate_password_hash(raw_token)
 
-    # 创建Token记录
     token = Token(
-        token=token_str,
+        token_hash=token_hash,
         name=name,
-        user_id=1,  # 默认管理员ID，应该根据实际情况调整
-        can_read=True,
-        can_write=True,
-        can_delete=False,
-        can_manage=False
+        user_id=1,
+        permissions=list(permissions or []) if permissions else [],
     )
-
-    if permissions:
-        for key, value in permissions.items():
-            setattr(token, key, value)
 
     if days_valid:
         from utils.timezone import now_utc
@@ -259,4 +201,4 @@ def create_server_token(server_id, name, permissions=None, days_valid=365):
     db.session.add(token)
     db.session.commit()
 
-    return token_str
+    return raw_token

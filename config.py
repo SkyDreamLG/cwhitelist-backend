@@ -4,16 +4,38 @@ import secrets
 from datetime import timedelta
 from pathlib import Path
 
+# 开关：True=开发环境，False=生产环境
+DEV_MODE = False
+
+_BASE_DIR = Path(__file__).parent
+_INSTANCE_DIR = _BASE_DIR / 'instance'
+_KEY_FILE = _INSTANCE_DIR / 'secret_key'
+
+
+def _load_secret_key():
+    """加载 SECRET_KEY：环境变量 > 持久化文件 > 自动生成并持久化"""
+    env_key = os.environ.get('SECRET_KEY')
+    if env_key:
+        return env_key
+
+    if _KEY_FILE.exists():
+        return _KEY_FILE.read_text().strip()
+
+    _INSTANCE_DIR.mkdir(parents=True, exist_ok=True)
+    new_key = secrets.token_hex(32)
+    _KEY_FILE.write_text(new_key)
+    return new_key
+
 
 class Config:
-    """基础配置类"""
-    # 安全设置 - 提供默认值
-    SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-change-in-production'
+    """基础配置"""
+    SECRET_KEY = _load_secret_key()
+    DEV_MODE = DEV_MODE
 
-    # 时区配置 - 默认从环境变量获取，但可以在设置页面修改
-    TIMEZONE = os.environ.get('TIMEZONE', 'UTC')
+    # 时区
+    TIMEZONE = os.environ.get('TIMEZONE', 'Asia/Shanghai')
 
-    # 多语言配置
+    # 多语言
     LANGUAGES = {
         'zh_CN': '简体中文',
         'en': 'English',
@@ -21,93 +43,71 @@ class Config:
     BABEL_DEFAULT_LOCALE = 'zh_CN'
     BABEL_TRANSLATION_DIRECTORIES = 'translations'
 
-    # 数据库配置
+    # 数据库
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-                              'sqlite:///' + os.path.join(Path(__file__).parent, 'instance', 'cwhitelist.db')
+        'sqlite:///' + str(_INSTANCE_DIR / 'cwhitelist.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
 
-    # 会话配置
+    # 调试
+    DEBUG = DEV_MODE
+
+    # 会话
     SESSION_TYPE = 'filesystem'
     SESSION_PERMANENT = False
     PERMANENT_SESSION_LIFETIME = timedelta(minutes=60)
 
-    # API配置
+    # API
     API_PREFIX = '/api'
     API_VERSION = 'v1'
     JSON_SORT_KEYS = False
 
     # 文件上传
-    UPLOAD_FOLDER = os.path.join(Path(__file__).parent, 'uploads')
-    MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB
+    UPLOAD_FOLDER = str(_BASE_DIR / 'uploads')
+    MAX_CONTENT_LENGTH = 16 * 1024 * 1024
 
-    # 日志配置
+    # 日志
     LOG_FILE = 'logs/app.log'
     LOG_LEVEL = 'INFO'
 
-    # CORS配置
-    CORS_ORIGINS = ['*']
+    # CORS - 从环境变量读取，逗号分隔，默认仅同源
+    _cors_env = os.environ.get('CORS_ORIGINS', '')
+    CORS_ORIGINS = [o.strip() for o in _cors_env.split(',') if o.strip()] if _cors_env else []
 
-    # 缓存配置
+    # 缓存
     CACHE_TYPE = 'simple'
     CACHE_DEFAULT_TIMEOUT = 300
 
-    # JWT配置
-    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or secrets.token_hex(32)
+    # JWT
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or SECRET_KEY
     JWT_ALGORITHM = 'HS256'
     JWT_EXPIRATION_HOURS = 24
 
-    # API配置
-    API_RATE_LIMIT = '1000/hour'  # API速率限制
+    # API 速率限制
+    API_RATE_LIMIT = '1000/hour'
+
+    # Cookie 安全 - 生产环境启用
+    SESSION_COOKIE_SECURE = not DEV_MODE
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+
+    # 速率限制存储
+    RATELIMIT_STORAGE_URL = 'memory://'
 
 
 class DevelopmentConfig(Config):
-    """开发环境配置"""
-    DEBUG = True
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(Path(__file__).parent, 'instance', 'cwhitelist.db')
-    SECRET_KEY = 'dev-secret-key-do-not-use-in-production'
-    TIMEZONE = os.environ.get('TIMEZONE', 'Asia/Shanghai')
+    pass
 
 
 class TestingConfig(Config):
-    """测试环境配置"""
     TESTING = True
     SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
-    SECRET_KEY = 'test-secret-key'
     WTF_CSRF_ENABLED = False
 
 
 class ProductionConfig(Config):
-    """生产环境配置"""
-    DEBUG = False
-
-    # 从环境变量获取密钥
-    SECRET_KEY = os.environ.get('SECRET_KEY')
-    if not SECRET_KEY:
-        SECRET_KEY = 'dev-secret-key-for-production-use-strong-key'
-        print("警告：SECRET_KEY未设置，使用默认值。生产环境请设置SECRET_KEY环境变量。")
-
-    # 时区配置
-    TIMEZONE = os.environ.get('TIMEZONE', 'UTC')
-
-    # 数据库配置
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
-    if not SQLALCHEMY_DATABASE_URI:
-        SQLALCHEMY_DATABASE_URI = Config.SQLALCHEMY_DATABASE_URI
-
-    # 安全设置
-    SESSION_COOKIE_SECURE = True
-    SESSION_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_SAMESITE = 'Lax'
-
-    # 缓存配置
-    CACHE_TYPE = 'redis'
-    CACHE_REDIS_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/0')
-
-    # 速率限制
-    RATELIMIT_STORAGE_URL = os.environ.get('REDIS_URL', 'redis://localhost:6379/1')
+    pass
 
 
-# 配置映射
 config = {
     'development': DevelopmentConfig,
     'testing': TestingConfig,

@@ -3,41 +3,59 @@ import secrets
 from flask_babel import _
 from .database import db
 from utils.timezone import now_utc
+from werkzeug.security import generate_password_hash, check_password_hash
 import pytz
 import html
 
 
 class Token(db.Model):
-    """API令牌模型"""
+    """API令牌模型 - Token以哈希形式存储，权限为细粒度字符串列表"""
     __tablename__ = 'tokens'
 
     id = db.Column(db.Integer, primary_key=True)
-    token = db.Column(db.String(64), unique=True, nullable=False, index=True, default=lambda: secrets.token_hex(32))
+    token_hash = db.Column(db.String(256), nullable=False)
     name = db.Column(db.String(128), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    user = db.relationship('User', backref='tokens')
     created_at = db.Column(db.DateTime, default=now_utc)
     expires_at = db.Column(db.DateTime)
     last_used = db.Column(db.DateTime)
     is_active = db.Column(db.Boolean, default=True)
 
-    # 权限
-    can_read = db.Column(db.Boolean, default=True)
-    can_write = db.Column(db.Boolean, default=False)
-    can_delete = db.Column(db.Boolean, default=False)
-    can_manage = db.Column(db.Boolean, default=False)
+    # 细粒度权限：JSON数组，如 ["whitelist:read", "login:log"]
+    permissions = db.Column(db.JSON, default=list, nullable=False)
 
     # 使用统计
     use_count = db.Column(db.Integer, default=0)
     last_ip = db.Column(db.String(45))
 
+    def has_permission(self, required):
+        """检查是否拥有指定权限。支持 *:* 超级权限。
+
+        Args:
+            required: 权限字符串，或权限字符串列表（满足任一即可）
+        """
+        from utils.permissions import Permission
+
+        if Permission.FULL in (self.permissions or []):
+            return True
+
+        if isinstance(required, list):
+            return bool(set(required) & set(self.permissions or []))
+        return required in (self.permissions or [])
+
+    def check_raw_token(self, raw_token):
+        """验证原始Token是否匹配存储的哈希值"""
+        if not raw_token or not self.token_hash:
+            return False
+        return check_password_hash(self.token_hash, raw_token)
+
     def is_valid(self):
         """检查Token是否有效"""
         try:
-            # 检查是否激活
             if not self.is_active:
                 return False
 
-            # 检查是否过期
             if self.expires_at:
                 now = now_utc()
                 if now > self.expires_at:
@@ -55,25 +73,33 @@ class Token(db.Model):
         self.last_ip = ip_address
         db.session.commit()
 
+    def get_permissions_display(self):
+        """获取权限显示文本"""
+        from utils.permissions import Permission
+
+        if Permission.FULL in (self.permissions or []):
+            return _('全部权限')
+
+        if not self.permissions:
+            return _('无')
+
+        labels = [_(Permission.get_label_key(p)) for p in self.permissions]
+        return '、'.join(labels)
+
     def to_dict(self):
         """转换为字典"""
         from utils.timezone import format_datetime
         return {
             'id': self.id,
-            'name': html.escape(self.name) if self.name else '',  # 防止XSS
-            'token': self.token[:8] + '...' if self.token else None,
+            'name': html.escape(self.name) if self.name else '',
+            'token': None,
             'user_id': self.user_id,
             'username': html.escape(self.user.username) if self.user and self.user.username else '未知用户',
             'created_at': format_datetime(self.created_at) if self.created_at else None,
             'expires_at': format_datetime(self.expires_at) if self.expires_at else None,
             'last_used': format_datetime(self.last_used) if self.last_used else None,
             'is_active': self.is_active,
-            'permissions': {
-                'can_read': self.can_read,
-                'can_write': self.can_write,
-                'can_delete': self.can_delete,
-                'can_manage': self.can_manage
-            },
+            'permissions': list(self.permissions or []),
             'stats': {
                 'use_count': self.use_count,
                 'last_ip': html.escape(self.last_ip) if self.last_ip else None
@@ -81,62 +107,41 @@ class Token(db.Model):
         }
 
     def is_expired(self):
-        """检查Token是否已过期 - 修复时区问题版本"""
+        """检查Token是否已过期"""
         if not self.expires_at:
             return False
 
-        # 确保两个时间都有时区信息
         from utils.timezone import now_utc
         current_time = now_utc()
 
-        # 如果expires_at没有时区信息，假设它是UTC时间
         if not self.expires_at.tzinfo:
-            # 添加UTC时区信息
             expires_at_utc = self.expires_at.replace(tzinfo=pytz.UTC)
         else:
             expires_at_utc = self.expires_at
 
         return current_time > expires_at_utc
 
-    def get_permissions_display(self):
-        """获取权限显示文本"""
-        permissions = []
-        if self.can_read:
-            permissions.append(_('读取'))
-        if self.can_write:
-            permissions.append(_('写入'))
-        if self.can_delete:
-            permissions.append(_('删除'))
-        if self.can_manage:
-            permissions.append(_('管理'))
-        return '、'.join(permissions) if permissions else _('无')
-
     @classmethod
     def create_token(cls, user_id, name, permissions=None, days_valid=365):
-        """创建新令牌"""
+        """创建新令牌 - 返回(raw_token, token_obj)元组，raw_token仅此时可见"""
         from utils.timezone import now_utc
         from datetime import timedelta
+        from utils.permissions import Permission
 
-        # 清理和验证输入
         if name:
-            # 移除潜在的恶意字符
             name = html.escape(name.strip())
             if len(name) > 128:
                 name = name[:128]
 
+        raw_token = secrets.token_hex(32)
+        token_hash = generate_password_hash(raw_token)
+
         token = cls(
+            token_hash=token_hash,
             user_id=user_id,
             name=name,
-            can_read=True,
-            can_write=True,
-            can_delete=False,
-            can_manage=False
+            permissions=list(permissions or []) if permissions else [],
         )
-
-        if permissions:
-            for key, value in permissions.items():
-                if hasattr(token, key):
-                    setattr(token, key, bool(value))
 
         if days_valid and days_valid > 0:
             token.expires_at = now_utc() + timedelta(days=days_valid)
@@ -144,7 +149,21 @@ class Token(db.Model):
         db.session.add(token)
         db.session.commit()
 
-        return token
+        return raw_token, token
+
+    @classmethod
+    def find_by_raw_token(cls, raw_token):
+        """通过原始Token字符串查找匹配的Token记录（比对哈希值）"""
+        if not raw_token:
+            return None
+        now = now_utc()
+        candidates = cls.query.filter_by(is_active=True).filter(
+            db.or_(cls.expires_at.is_(None), cls.expires_at > now)
+        ).all()
+        for token in candidates:
+            if token.check_raw_token(raw_token):
+                return token
+        return None
 
     def __repr__(self):
         return f'<Token {html.escape(self.name) if self.name else "Unnamed"} ({self.user_id})>'

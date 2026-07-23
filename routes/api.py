@@ -2,6 +2,7 @@
 from flask import Blueprint, request, jsonify
 from datetime import datetime
 import uuid
+import secrets
 
 from models.database import db
 from models.token import Token
@@ -9,7 +10,8 @@ from models.whitelist import WhitelistEntry
 from models.log import Log
 from models.session import LoginSession
 from models.server_status import ServerStatus
-from utils.auth import require_api_auth  # 导入装饰器
+from utils.auth import require_api_auth
+from utils.permissions import Permission
 
 api_bp = Blueprint('api', __name__)
 
@@ -24,10 +26,8 @@ def health():
             'message': 'server_id is required'
         }), 400
 
-    # 记录心跳
     ServerStatus.heartbeat(server_id)
 
-    # 检查是否有超时服务器，自动关闭其会话
     offline_servers = ServerStatus.check_offline(timeout_seconds=60)
     for sid in offline_servers:
         now = datetime.utcnow()
@@ -37,7 +37,6 @@ def health():
         for s in open_sessions:
             s.close_session(logout_time=now)
 
-    # 记录API访问日志
     log = Log(
         level='info',
         message=f'API健康检查: {server_id}',
@@ -60,25 +59,21 @@ def health():
 
 
 @api_bp.route('/whitelist/sync', methods=['GET'])
-@require_api_auth  # 添加Token验证
+@require_api_auth(Permission.WHITELIST_READ)
 def sync_whitelist():
     """同步白名单数据"""
     try:
-        # 获取查询参数
         server_id = request.args.get('server_id', '').strip()
         only_active = request.args.get('only_active', 'true').lower() == 'true'
 
-        # server_id 为必填参数
         if not server_id:
             return jsonify({
                 'success': False,
                 'message': 'server_id is required'
             }), 400
 
-        # 获取Token信息（通过装饰器附加）
         token = getattr(request, 'token', None)
 
-        # 记录带Token信息的日志
         log_details = {
             'endpoint': '/whitelist/sync',
             'entries_count': 'unknown',
@@ -87,13 +82,10 @@ def sync_whitelist():
             'token_name': token.name if token else None
         }
 
-        # 构建查询 - 按server_id过滤
         query = WhitelistEntry.query.filter_by(server_id=server_id)
 
         if only_active:
             query = query.filter_by(is_active=True)
-
-            # 排除过期的条目
             from sqlalchemy import or_
             query = query.filter(or_(
                 WhitelistEntry.expires_at.is_(None),
@@ -101,11 +93,8 @@ def sync_whitelist():
             ))
 
         entries = query.order_by(WhitelistEntry.type, WhitelistEntry.value).all()
-
-        # 更新日志详情
         log_details['entries_count'] = len(entries)
 
-        # 记录API操作日志
         log = Log(
             level='info',
             message='API同步白名单数据',
@@ -126,15 +115,11 @@ def sync_whitelist():
             'token_info': {
                 'token_id': token.id if token else None,
                 'token_name': token.name if token else None,
-                'permissions': {
-                    'can_read': token.can_read if token else None,
-                    'can_write': token.can_write if token else None
-                }
+                'permissions': token.permissions if token else None
             } if token else None
         })
 
     except Exception as e:
-        # 记录API错误日志
         log = Log(
             level='error',
             message='API同步白名单数据失败',
@@ -153,7 +138,7 @@ def sync_whitelist():
 
 
 @api_bp.route('/whitelist/entries', methods=['POST'])
-@require_api_auth  # 添加Token验证
+@require_api_auth(Permission.WHITELIST_WRITE)
 def add_whitelist_entry():
     """添加白名单条目"""
     try:
@@ -164,17 +149,8 @@ def add_whitelist_entry():
                 'message': 'No data provided'
             }), 400
 
-        # 获取Token信息
         token = getattr(request, 'token', None)
 
-        # 检查写入权限
-        if token and not token.can_write:
-            return jsonify({
-                'success': False,
-                'message': 'Token does not have write permission'
-            }), 403
-
-        # 验证必需字段
         required_fields = ['type', 'value', 'server_id']
         for field in required_fields:
             if field not in data:
@@ -193,14 +169,12 @@ def add_whitelist_entry():
                 'message': 'server_id cannot be empty'
             }), 400
 
-        # 验证类型
         if entry_type not in ['name', 'uuid', 'ip']:
             return jsonify({
                 'success': False,
                 'message': 'Invalid type. Must be: name, uuid, or ip'
             }), 400
 
-        # 检查是否已存在（相同server_id下）
         existing = WhitelistEntry.query.filter_by(
             type=entry_type,
             value=value,
@@ -213,7 +187,6 @@ def add_whitelist_entry():
                 'message': 'Entry already exists'
             }), 409
 
-        # 创建条目
         entry = WhitelistEntry(
             type=entry_type,
             value=value,
@@ -223,7 +196,6 @@ def add_whitelist_entry():
             is_active=data.get('is_active', True)
         )
 
-        # 设置过期时间
         if 'expires_at' in data:
             try:
                 entry.expires_at = datetime.fromisoformat(data['expires_at'].replace('Z', '+00:00'))
@@ -236,7 +208,6 @@ def add_whitelist_entry():
         db.session.add(entry)
         db.session.commit()
 
-        # 记录API操作日志
         log = Log(
             level='info',
             message='API添加白名单条目',
@@ -258,7 +229,6 @@ def add_whitelist_entry():
     except Exception as e:
         db.session.rollback()
 
-        # 记录API错误日志
         log = Log(
             level='error',
             message='API添加白名单条目失败',
@@ -277,7 +247,7 @@ def add_whitelist_entry():
 
 
 @api_bp.route('/whitelist/entries/<entry_id>', methods=['PUT'])
-@require_api_auth
+@require_api_auth(Permission.WHITELIST_WRITE)
 def update_whitelist_entry(entry_id):
     """更新白名单条目"""
     try:
@@ -289,12 +259,6 @@ def update_whitelist_entry(entry_id):
             }), 400
 
         token = getattr(request, 'token', None)
-
-        if token and not token.can_write:
-            return jsonify({
-                'success': False,
-                'message': 'Token does not have write permission'
-            }), 403
 
         entry = WhitelistEntry.query.get(entry_id)
         if not entry:
@@ -378,21 +342,12 @@ def update_whitelist_entry(entry_id):
 
 
 @api_bp.route('/whitelist/entries/<entry_type>/<value>', methods=['DELETE'])
-@require_api_auth  # 添加Token验证
+@require_api_auth(Permission.WHITELIST_DELETE)
 def delete_whitelist_entry(entry_type, value):
     """删除白名单条目"""
     try:
-        # 获取Token信息
         token = getattr(request, 'token', None)
 
-        # 检查删除权限
-        if token and not token.can_delete:
-            return jsonify({
-                'success': False,
-                'message': 'Token does not have delete permission'
-            }), 403
-
-        # server_id 为必填参数
         server_id = request.args.get('server_id', '').strip()
         if not server_id:
             return jsonify({
@@ -400,7 +355,6 @@ def delete_whitelist_entry(entry_type, value):
                 'message': 'server_id is required'
             }), 400
 
-        # 查找条目（按server_id范围查找）
         entry = WhitelistEntry.query.filter_by(
             type=entry_type.lower(),
             value=value,
@@ -408,7 +362,6 @@ def delete_whitelist_entry(entry_type, value):
         ).first()
 
         if not entry:
-            # 记录未找到条目的日志
             log = Log(
                 level='warning',
                 message=f'API删除白名单条目失败：条目不存在',
@@ -425,7 +378,6 @@ def delete_whitelist_entry(entry_type, value):
                 'message': 'Entry not found'
             }), 404
 
-        # 记录删除操作日志（在删除前记录）
         log = Log(
             level='warning',
             message=f'API删除白名单条目: {entry.type}={entry.value}',
@@ -436,7 +388,6 @@ def delete_whitelist_entry(entry_type, value):
         )
         db.session.add(log)
 
-        # 删除条目
         db.session.delete(entry)
         db.session.commit()
 
@@ -449,7 +400,6 @@ def delete_whitelist_entry(entry_type, value):
     except Exception as e:
         db.session.rollback()
 
-        # 记录API错误日志
         log = Log(
             level='error',
             message='API删除白名单条目失败',
@@ -468,7 +418,7 @@ def delete_whitelist_entry(entry_type, value):
 
 
 @api_bp.route('/login/log', methods=['POST'])
-@require_api_auth  # 添加Token验证
+@require_api_auth(Permission.LOGIN_LOG)
 def log_login():
     """记录登录事件"""
     try:
@@ -479,10 +429,8 @@ def log_login():
                 'message': 'No data provided'
             }), 400
 
-        # 获取Token信息
         token = getattr(request, 'token', None)
 
-        # 验证必需字段
         required_fields = ['player_name', 'player_uuid', 'player_ip', 'allowed', 'server_id']
         for field in required_fields:
             if field not in data:
@@ -498,7 +446,6 @@ def log_login():
         check_type = data.get('check_type')
         server_id = data['server_id']
 
-        # 记录Minecraft玩家登入事件
         log = Log.create_login_log(
             player_name=player_name,
             player_uuid=player_uuid,
@@ -509,17 +456,14 @@ def log_login():
             user_id=token.user_id if token else None
         )
 
-        # 如果允许登入，创建或更新会话记录
         session_id = None
         if allowed:
-            # 查找该玩家是否有未关闭的会话
             open_session = LoginSession.query.filter_by(
                 player_name=player_name,
                 server_id=server_id,
                 logout_time=None
             ).first()
             if open_session:
-                # 已有打开会话，更新登入时间
                 open_session.login_time = datetime.utcnow()
                 open_session.login_ip = player_ip
                 if player_uuid:
@@ -527,7 +471,6 @@ def log_login():
                 db.session.commit()
                 session_id = open_session.id
             else:
-                # 创建新会话 - 如服务器刚恢复，用恢复时间
                 recovery_time = ServerStatus.get_recovery_time(server_id)
                 login_time = recovery_time or datetime.utcnow()
                 new_session = LoginSession(
@@ -550,7 +493,6 @@ def log_login():
         })
 
     except Exception as e:
-        # 记录API错误日志
         log = Log(
             level='error',
             message='API记录登录事件失败',
@@ -569,7 +511,7 @@ def log_login():
 
 
 @api_bp.route('/login/logout', methods=['POST'])
-@require_api_auth
+@require_api_auth(Permission.LOGIN_LOG)
 def log_logout():
     """记录登出事件"""
     try:
@@ -595,7 +537,6 @@ def log_logout():
         player_ip = data['player_ip']
         server_id = data['server_id']
 
-        # 记录登出日志
         log = Log(
             level='login',
             message=f'Player logout: {player_name}',
@@ -609,7 +550,6 @@ def log_logout():
         )
         db.session.add(log)
 
-        # 关闭最近的打开会话
         open_session = LoginSession.query.filter_by(
             player_name=player_name,
             server_id=server_id,
@@ -627,7 +567,6 @@ def log_logout():
                 'duration': open_session.duration,
             })
         else:
-            # 没有打开会话 - 用服务器恢复时间作为登入时间，正常关闭
             recovery_time = ServerStatus.get_recovery_time(server_id)
             login_time = recovery_time or datetime.utcnow()
             logout_time = datetime.utcnow()
@@ -688,7 +627,6 @@ def verify_token():
                 'message': 'Token not found'
             }), 404
 
-        # 构建响应
         response_data = {
             'success': True,
             'message': 'Token is valid',
@@ -698,22 +636,17 @@ def verify_token():
                 'created_at': token.created_at.isoformat() if token.created_at else None,
                 'expires_at': token.expires_at.isoformat() if token.expires_at else None,
                 'is_active': token.is_active,
-                'permissions': {
-                    'can_read': token.can_read,
-                    'can_write': token.can_write,
-                    'can_delete': token.can_delete,
-                    'can_manage': token.can_manage
-                }
+                'permissions': list(token.permissions or [])
             },
             'valid_until': token.expires_at.isoformat() if token.expires_at else 'never'
         }
 
-        print(f"[API] ✅ Token verification successful for: {token.name}")
+        print(f"[API] Token verification successful for: {token.name}")
 
         return jsonify(response_data)
 
     except Exception as e:
-        print(f"[API] ❌ Token verification error: {str(e)}")
+        print(f"[API] Token verification error: {str(e)}")
         import traceback
         print(f"[API] Stack trace: {traceback.format_exc()}")
 
@@ -725,12 +658,11 @@ def verify_token():
 
 @api_bp.route('/tokens/create', methods=['POST'])
 def create_token():
-    """创建新的API Token（需要管理员权限）"""
+    """创建新的API Token（需要管理员Web登录）"""
     from flask_login import current_user
     from models.user import User
 
     try:
-        # 验证管理员权限（通过Web登录）
         if not current_user.is_authenticated or not current_user.is_admin():
             return jsonify({
                 'success': False,
@@ -744,7 +676,6 @@ def create_token():
                 'message': 'No data provided'
             }), 400
 
-        # 必需字段
         name = data.get('name', '').strip()
         if not name:
             return jsonify({
@@ -752,29 +683,22 @@ def create_token():
                 'message': 'Token name is required'
             }), 400
 
-        # 权限设置
-        permissions = {
-            'can_read': data.get('can_read', True),
-            'can_write': data.get('can_write', False),
-            'can_delete': data.get('can_delete', False),
-            'can_manage': data.get('can_manage', False)
-        }
+        # 细粒度权限：从请求体获取权限字符串列表
+        perms = data.get('permissions', [])
+        if not isinstance(perms, list):
+            perms = []
 
-        # 有效期（天）
         days_valid = data.get('days_valid', 365)
 
-        # 创建Token
-        from utils.auth import generate_api_key
-        token_str = generate_api_key()
+        from werkzeug.security import generate_password_hash
+        token_str = secrets.token_hex(32)
+        token_hash = generate_password_hash(token_str)
 
         token = Token(
-            token=token_str,
+            token_hash=token_hash,
             name=name,
             user_id=current_user.id,
-            can_read=permissions['can_read'],
-            can_write=permissions['can_write'],
-            can_delete=permissions['can_delete'],
-            can_manage=permissions['can_manage']
+            permissions=perms
         )
 
         if days_valid:
@@ -785,14 +709,13 @@ def create_token():
         db.session.add(token)
         db.session.commit()
 
-        # 记录操作日志
         log = Log(
             level='info',
             message=f'创建API Token: {name}',
             source='api',
             ip_address=request.remote_addr,
             user_id=current_user.id,
-            details=f'token_id: {token.id}, permissions: {permissions}'
+            details=f'token_id: {token.id}, permissions: {perms}'
         )
         db.session.add(log)
         db.session.commit()
@@ -800,13 +723,13 @@ def create_token():
         return jsonify({
             'success': True,
             'message': 'Token created successfully',
-            'token': token_str,  # 只在这里返回完整token
+            'token': token_str,
             'token_info': {
                 'id': token.id,
                 'name': token.name,
                 'created_at': token.created_at.isoformat() if token.created_at else None,
                 'expires_at': token.expires_at.isoformat() if token.expires_at else None,
-                'permissions': permissions
+                'permissions': list(token.permissions or [])
             }
         }), 201
 

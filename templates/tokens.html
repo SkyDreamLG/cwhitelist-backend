@@ -106,40 +106,30 @@
 
                         <div class="col-md-6">
                             <label class="form-label">{{ _('权限设置') }}</label>
+                            <div class="mb-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary me-1" onclick="checkAll()">{{ _('服务器完整') }}</button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary me-1" onclick="checkBasic()">{{ _('服务器基础') }}</button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="checkFull()">{{ _('超级权限') }}</button>
+                            </div>
                             <div class="mb-3">
+                                {% for perm in Permission.all_permissions() %}
                                 <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" id="can_read" name="can_read" checked>
-                                    <label class="form-check-label" for="can_read">
-                                        <strong>{{ _('读取权限') }}</strong>
-                                        <br>
-                                        <small class="text-muted">{{ _('允许读取白名单、日志等数据') }}</small>
+                                    <input class="form-check-input perm-checkbox" type="checkbox"
+                                           id="perm_{{ perm }}" name="perm_{{ perm }}" checked>
+                                    <label class="form-check-label" for="perm_{{ perm }}">
+                                        <strong>{{ _(Permission.get_label_key(perm)) }}</strong>
                                     </label>
                                 </div>
-
+                                {% endfor %}
+                                <hr>
                                 <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" id="can_write" name="can_write">
-                                    <label class="form-check-label" for="can_write">
-                                        <strong>{{ _('写入权限') }}</strong>
+                                    <input class="form-check-input" type="checkbox"
+                                           id="perm_full" name="perm_{{ Permission.FULL }}"
+                                           onchange="toggleFullPerm(this)">
+                                    <label class="form-check-label" for="perm_full">
+                                        <strong class="text-danger">{{ _(Permission.get_label_key(Permission.FULL)) }}</strong>
                                         <br>
-                                        <small class="text-muted">{{ _('允许添加、修改数据') }}</small>
-                                    </label>
-                                </div>
-
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" id="can_delete" name="can_delete">
-                                    <label class="form-check-label" for="can_delete">
-                                        <strong>{{ _('删除权限') }}</strong>
-                                        <br>
-                                        <small class="text-muted">{{ _('允许删除数据') }}</small>
-                                    </label>
-                                </div>
-
-                                <div class="form-check mb-2">
-                                    <input class="form-check-input" type="checkbox" id="can_manage" name="can_manage">
-                                    <label class="form-check-label" for="can_manage">
-                                        <strong>{{ _('管理权限') }}</strong>
-                                        <br>
-                                        <small class="text-muted">{{ _('允许系统管理操作') }}</small>
+                                        <small class="text-muted">{{ _('拥有所有权限，无需勾选其他项') }}</small>
                                     </label>
                                 </div>
                             </div>
@@ -198,14 +188,17 @@
                                         <i class="bi bi-person me-1"></i>{{ token.user.username if token.user else _('未知用户') | e }}
                                         <br>
                                         {{ _('权限') }}:
-                                        {% if token.can_read %}<span class="badge bg-info me-1">{{ _('读') }}</span>{% endif %}
-                                        {% if token.can_write %}<span class="badge bg-warning me-1">{{ _('写') }}</span>{% endif %}
-                                        {% if token.can_delete %}<span class="badge bg-danger me-1">{{ _('删') }}</span>{% endif %}
-                                        {% if token.can_manage %}<span class="badge bg-primary me-1">{{ _('管') }}</span>{% endif %}
+                                        {% if Permission.FULL in (token.permissions or []) %}
+                                            <span class="badge bg-danger me-1">{{ _('全部') }}</span>
+                                        {% else %}
+                                            {% for p in (token.permissions or []) %}
+                                                <span class="badge bg-secondary me-1">{{ _(Permission.get_label_key(p)) }}</span>
+                                            {% endfor %}
+                                        {% endif %}
                                     </div>
                                 </td>
                                 <td>
-                                    <code>{{ token.token[:8] }}...{{ token.token[-8:] if token.token|length > 16 else '' }}</code>
+                                    <code>••••••••••••••••</code>
                                     <br>
                                     <small class="text-muted">{{ _('最后IP') }}: {{ token.last_ip or _('未使用') | e }}</small>
                                 </td>
@@ -358,19 +351,31 @@ curl -X POST "{{ request.host_url }}api/login/log" \
                             </ul>
                         </div>
 
-                        <h6>{{ _('支持的操作：') }}</h6>
+                        <h6>{{ _('API端点及所需权限：') }}</h6>
                         <ul class="list-group list-group-flush">
                             <li class="list-group-item">
-                                <i class="bi bi-check-circle text-success me-2"></i>
-                                <strong>GET /api/health</strong> - {{ _('健康检查（无需Token）') }}
+                                <strong>GET /api/health</strong> — {{ _('无需Token') }}
                             </li>
                             <li class="list-group-item">
-                                <i class="bi bi-check-circle text-success me-2"></i>
-                                <strong>GET /api/whitelist/sync</strong> - {{ _('同步白名单（需要读取权限）') }}
+                                <strong>GET /api/whitelist/sync</strong> — <code>whitelist:read</code>
                             </li>
                             <li class="list-group-item">
-                                <i class="bi bi-check-circle text-success me-2"></i>
-                                <strong>POST /api/login/log</strong> - {{ _('记录登录事件（需要写入权限）') }}
+                                <strong>POST /api/whitelist/entries</strong> — <code>whitelist:write</code>
+                            </li>
+                            <li class="list-group-item">
+                                <strong>PUT /api/whitelist/entries/&lt;id&gt;</strong> — <code>whitelist:write</code>
+                            </li>
+                            <li class="list-group-item">
+                                <strong>DELETE /api/whitelist/entries/&lt;type&gt;/&lt;value&gt;</strong> — <code>whitelist:delete</code>
+                            </li>
+                            <li class="list-group-item">
+                                <strong>POST /api/login/log</strong> — <code>login:log</code>
+                            </li>
+                            <li class="list-group-item">
+                                <strong>POST /api/login/logout</strong> — <code>login:log</code>
+                            </li>
+                            <li class="list-group-item">
+                                <strong>GET /api/tokens/verify</strong> — {{ _('任何有效Token') }}
                             </li>
                         </ul>
                     </div>
@@ -429,6 +434,37 @@ curl -X POST "{{ request.host_url }}api/login/log" \
 {% endif %}
 
 <script>
+// 勾选"全部权限"时禁用其他复选框
+function toggleFullPerm(el) {
+    const checkboxes = document.querySelectorAll('.perm-checkbox');
+    checkboxes.forEach(cb => {
+        cb.disabled = el.checked;
+        if (el.checked) cb.checked = false;
+    });
+}
+
+// 预设：服务器完整（全选）
+function checkAll() {
+    document.getElementById('perm_full').checked = false;
+    document.querySelectorAll('.perm-checkbox').forEach(cb => { cb.checked = true; cb.disabled = false; });
+}
+
+// 预设：服务器基础（读+日志+验证+心跳）
+function checkBasic() {
+    document.getElementById('perm_full').checked = false;
+    document.querySelectorAll('.perm-checkbox').forEach(cb => {
+        const basicPerms = ['whitelist:read', 'login:log'];
+        cb.checked = basicPerms.includes(cb.name.replace('perm_', ''));
+        cb.disabled = false;
+    });
+}
+
+// 预设：超级权限
+function checkFull() {
+    document.getElementById('perm_full').checked = true;
+    toggleFullPerm({checked: true});
+}
+
 // {{ _('复制Token') }}
 function copyToken() {
     const tokenValue = document.getElementById('modalTokenValue').value;

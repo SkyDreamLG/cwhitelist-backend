@@ -41,12 +41,14 @@ else:
 from flask import Flask, g, request, jsonify, session
 from flask_login import LoginManager
 from flask_babel import Babel, _
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 # 创建应用实例
 app = Flask(__name__)
 
-# 加载配置
-config_class = os.environ.get('FLASK_CONFIG', 'config.DevelopmentConfig')
+# 加载配置 - 通过 DEV_MODE 环境变量切换开发/生产模式
+config_class = os.environ.get('FLASK_CONFIG', 'config.Config')
 app.config.from_object(config_class)
 
 # 确保实例文件夹存在
@@ -78,6 +80,14 @@ def get_locale():
 
 
 babel.init_app(app, locale_selector=get_locale)
+
+# 初始化速率限制器
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=[app.config.get('API_RATE_LIMIT', '1000/hour')],
+    storage_uri='memory://',
+)
+limiter.init_app(app)
 
 # 初始化登录管理器
 login_manager = LoginManager(app)
@@ -204,7 +214,8 @@ def run_flask(host='0.0.0.0', port=5000, debug=False):
     """运行Flask应用"""
     with app.app_context():
         db.create_all()
-        print("数据库表已创建完成")
+        mode = '开发' if app.config.get('DEV_MODE') else '生产'
+        print(f"当前模式: {mode}")
 
         # 检查是否需要OOBE
         from routes.web import is_oobe_required

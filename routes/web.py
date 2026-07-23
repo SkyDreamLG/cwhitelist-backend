@@ -467,6 +467,60 @@ def delete_whitelist(entry_id):
     return redirect(url_for('web.whitelist'))
 
 
+@web_bp.route('/whitelist/batch', methods=['POST'])
+@login_required
+def batch_whitelist():
+    """批量操作白名单条目"""
+    action = request.form.get('action', '')
+    entry_ids_str = request.form.get('entry_ids', '')
+    entry_ids = [eid.strip() for eid in entry_ids_str.split(',') if eid.strip()]
+
+    if not entry_ids:
+        flash(_('未选择任何条目'), 'error')
+        return redirect(url_for('web.whitelist'))
+
+    if action not in ('enable', 'disable', 'delete'):
+        flash(_('无效的操作'), 'error')
+        return redirect(url_for('web.whitelist'))
+
+    entries = WhitelistEntry.query.filter(WhitelistEntry.id.in_(entry_ids)).all()
+
+    if not entries:
+        flash(_('未找到所选条目'), 'error')
+        return redirect(url_for('web.whitelist'))
+
+    count = len(entries)
+
+    if action == 'enable':
+        for e in entries:
+            e.is_active = True
+        msg = _('已启用 %(count)s 个条目', count=count)
+    elif action == 'disable':
+        for e in entries:
+            e.is_active = False
+        msg = _('已禁用 %(count)s 个条目', count=count)
+    elif action == 'delete':
+        for e in entries:
+            db.session.delete(e)
+        msg = _('已删除 %(count)s 个条目', count=count)
+
+    db.session.commit()
+
+    log = Log(
+        level='warning' if action == 'delete' else 'info',
+        message=f'批量操作白名单: {action} {count}条',
+        source='web',
+        ip_address=request.remote_addr,
+        user_id=current_user.id,
+        details=f'action: {action}, entry_ids: {entry_ids}, count: {count}'
+    )
+    db.session.add(log)
+    db.session.commit()
+
+    flash(msg, 'success')
+    return redirect(url_for('web.whitelist'))
+
+
 @web_bp.route('/logs')
 @login_required
 def logs():
@@ -871,23 +925,23 @@ def oobe():
             print("步骤4: 创建示例API Token...")
             try:
                 import secrets
-                token_str = secrets.token_hex(32)
+                from werkzeug.security import generate_password_hash
+                raw_token = secrets.token_hex(32)
+                token_hash_val = generate_password_hash(raw_token)
 
                 # 获取刚创建的管理员ID
                 admin = User.query.filter_by(email=admin_email).first()
                 if admin:
+                    from utils.permissions import Permission
                     example_token = Token(
-                        token=token_str,
+                        token_hash=token_hash_val,
                         name='示例服务器Token',
                         user_id=admin.id,
-                        can_read=True,
-                        can_write=False,
-                        can_delete=False,
-                        can_manage=False,
+                        permissions=Permission.SERVER_FULL,
                         is_active=True
                     )
                     db.session.add(example_token)
-                    print(f"✓ 创建示例Token: {token_str[:16]}...")
+                    print(f"✓ 创建示例Token: {raw_token[:16]}...")
             except Exception as token_error:
                 print(f"⚠ 创建示例Token失败: {token_error}")
 
@@ -1406,10 +1460,12 @@ def token_management():
         session.pop('new_token_created', None)
         session.pop('new_token_data', None)
 
+    from utils.permissions import Permission
     return render_template('tokens.html',
                            tokens=pagination.items,
                            pagination=pagination,
                            total_tokens=total_tokens,
+                           Permission=Permission,
                            active_tokens=active_tokens,
                            expired_tokens=expired_tokens,
                            new_token=new_token)
@@ -1424,15 +1480,18 @@ def create_web_token():
         return redirect(url_for('web.token_management'))
 
     name = request.form.get('name', '').strip()
-    can_read = request.form.get('can_read') == 'on'
-    can_write = request.form.get('can_write') == 'on'
-    can_delete = request.form.get('can_delete') == 'on'
-    can_manage = request.form.get('can_manage') == 'on'
+
+    # 细粒度权限：从表单收集选中的权限
+    from utils.permissions import Permission
+    selected_perms = []
+    for perm in Permission.all_permissions():
+        if request.form.get(f'perm_{perm}') == 'on':
+            selected_perms.append(perm)
 
     # 处理有效期
     days_valid_str = request.form.get('days_valid', '0').strip()
     if days_valid_str == '' or days_valid_str == '0':
-        days_valid = None  # 永不过期
+        days_valid = None
     else:
         try:
             days_valid = int(days_valid_str)
@@ -1447,22 +1506,19 @@ def create_web_token():
         return redirect(url_for('web.token_management'))
 
     try:
-        # 生成Token字符串
         import secrets
-        token_str = secrets.token_hex(32)
+        from werkzeug.security import generate_password_hash
+        raw_token = secrets.token_hex(32)
+        token_hash_val = generate_password_hash(raw_token)
 
-        # 创建Token
         from utils.timezone import now_utc
         from datetime import timedelta
 
         token = Token(
-            token=token_str,
+            token_hash=token_hash_val,
             name=name,
             user_id=current_user.id,
-            can_read=can_read,
-            can_write=can_write,
-            can_delete=can_delete,
-            can_manage=can_manage,
+            permissions=selected_perms,
             is_active=True
         )
 
@@ -1472,11 +1528,11 @@ def create_web_token():
         db.session.add(token)
         db.session.commit()
 
-        # 准备显示的数据
+        # 准备显示的数据 - 仅此时返回原始token
         from utils.timezone import format_datetime
         new_token_data = {
             'name': token.name,
-            'token': token.token,
+            'token': raw_token,
             'expires_at': token.expires_at.isoformat() if token.expires_at else None,
             'expires_at_formatted': format_datetime(token.expires_at) if token.expires_at else _('永不过期')
         }
@@ -1492,7 +1548,7 @@ def create_web_token():
             source='web',
             ip_address=request.remote_addr,
             user_id=current_user.id,
-            details=f'token_id: {token.id}, permissions: read={can_read}, write={can_write}, delete={can_delete}, manage={can_manage}'
+            details=f'token_id: {token.id}, permissions: {selected_perms}'
         )
         db.session.add(log)
         db.session.commit()
@@ -1564,7 +1620,7 @@ def delete_token(token_id):
         source='web',
         ip_address=request.remote_addr,
         user_id=current_user.id,
-        details=f'token_id: {token.id}, token: {token.token[:16]}...'
+        details=f'token_id: {token.id}'
     )
     db.session.add(log)
 
@@ -1602,10 +1658,11 @@ def refresh_token(token_id):
 
     try:
         import secrets
-        old_token = token.token[:16] + '...'  # 记录部分用于日志
+        from werkzeug.security import generate_password_hash
 
-        # 生成新Token
-        token.token = secrets.token_hex(32)
+        # 生成新Token，存储哈希值
+        new_raw_token = secrets.token_hex(32)
+        token.token_hash = generate_password_hash(new_raw_token)
 
         # 可选：重置过期时间
         from utils.timezone import now_utc
@@ -1624,16 +1681,16 @@ def refresh_token(token_id):
             source='web',
             ip_address=request.remote_addr,
             user_id=current_user.id,
-            details=f'token_id: {token.id}, old_token: {old_token}'
+            details=f'token_id: {token.id}'
         )
         db.session.add(log)
         db.session.commit()
 
-        # 将新Token存储在session中以便显示
+        # 将新Token存储在session中以便显示 - 仅此时可见
         from utils.timezone import format_datetime
         new_token_data = {
             'name': token.name,
-            'token': token.token,
+            'token': new_raw_token,
             'expires_at': token.expires_at.isoformat() if token.expires_at else None,
             'expires_at_formatted': format_datetime(token.expires_at) if token.expires_at else _('永不过期')
         }
