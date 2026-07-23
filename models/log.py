@@ -37,9 +37,13 @@ class Log(db.Model):
     @classmethod
     def create_login_log(cls, player_name, player_uuid, player_ip, allowed, check_type=None, user_id=None):
         """创建登录日志"""
+        # 判断是否为本地用户登录
+        is_local = check_type == 'host'
+        player_label = 'Local user' if is_local else 'Player'
+
         log = cls(
             level='login',
-            message=f'Player {"allowed" if allowed else "denied"}: {player_name}',
+            message=f'{player_label} {"allowed" if allowed else "denied"}: {player_name}',
             source='api',
             ip_address=player_ip,
             player_name=player_name,

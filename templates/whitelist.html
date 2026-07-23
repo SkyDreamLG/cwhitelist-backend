@@ -257,7 +257,7 @@
                                                 {{ '允许' if last_login.allowed else '拒绝' }}
                                             </span>
                                             {% if last_login.check_type %}
-                                            <span class="badge bg-secondary ms-1">{{ last_login.check_type }}</span>
+                                            <span class="badge bg-secondary ms-1">{{ '本地用户' if last_login.check_type == 'host' else last_login.check_type }}</span>
                                             {% endif %}
                                         </small>
                                     </div>
