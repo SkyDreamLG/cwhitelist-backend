@@ -17,20 +17,24 @@ English | [中文](./README_CN.md)
 
 A lightweight Flask backend for CWhitelist that exposes a REST API for whitelist synchronization and management, stores entries and logs, and ships with a web admin UI. It is designed as the central authority for whitelist data when integrated with the CWhitelist Minecraft mod or other clients.
 
-**Current version: 2.0.0**
+**Current version: 2.1.0**
 
 ## Key Features
 
-- RESTful API with token-based authentication
+- RESTful API with token-based authentication — tokens are hashed (irreversible storage)
+- Fine-grained permission system (`whitelist:read/write/delete`, `login:log`) with presets and `*:*` wildcard
+- Brute-force protection on login (IP-based rate limiting)
 - Server health check with heartbeat tracking and auto-offline detection
 - Whitelist sync endpoint (server-scoped, supports name/uuid/ip)
 - Add / edit / delete whitelist entries via API with `server_id` scoping
+- Batch whitelist operations (enable/disable/delete)
 - Login / logout event logging with session duration tracking
 - Player analytics dashboard — online time charts, IP geolocation, server vitality rankings
 - Admin web UI with i18n support (简体中文 / English)
 - Server status monitoring with automatic session cleanup
-- SQLite by default, configurable via environment variables
 - Timezone-aware time display across all pages
+- One-line dev/production mode toggle (`DEV_MODE` in config.py)
+- Auto-generated SECRET_KEY persisted to file — no manual config needed
 - CLI-friendly startup with optional GUI configuration
 
 ## Quick Start
@@ -70,21 +74,22 @@ python app.py --host 0.0.0.0 --port 5000 --no-gui
 
 ## Configuration
 
-Configuration via `config.py` classes and environment variables:
+Configuration via `config.py` and environment variables:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `SECRET_KEY` | Flask secret key | auto-generated (change in production) |
+| `DEV_MODE` | Dev/production switch (line 8 in `config.py`) | `True` (dev) |
+| `SECRET_KEY` | Flask secret key | Auto-generated, persisted to `instance/secret_key` |
 | `TIMEZONE` | Default timezone | `Asia/Shanghai` |
 | `DATABASE_URL` | SQLAlchemy connection string | `sqlite:///instance/cwhitelist.db` |
-| `SESSION_TYPE` | Session storage | `filesystem` |
-| `PERMANENT_SESSION_LIFETIME` | Session timeout | 60 minutes |
+| `CORS_ORIGINS` | Allowed CORS origins (comma-separated) | Empty (same-origin only) |
 
 ```bash
-export SECRET_KEY="change-me-in-production"
 export DATABASE_URL="sqlite:///instance/cwhitelist.db"
 python app.py --no-gui
 ```
+
+Switch to production: edit `config.py` line 8 to `DEV_MODE = False`.
 
 ## API Overview
 
@@ -103,7 +108,7 @@ No authentication required. `server_id` is **required** and doubles as a server 
   "server_id": "lobby",
   "timestamp": "2026-07-23T00:00:00Z",
   "service": "CWhitelist API",
-  "version": "2.0.0"
+  "version": "2.1.0"
 }
 ```
 
@@ -111,13 +116,13 @@ No authentication required. `server_id` is **required** and doubles as a server 
 ```
 GET /api/whitelist/sync?server_id=<id>&only_active=true
 ```
-Token required (read permission). `server_id` is **required**.
+Token required (`whitelist:read`). `server_id` is **required**.
 
 ### Add Whitelist Entry
 ```
 POST /api/whitelist/entries
 ```
-Token required (write permission). Body:
+Token required (`whitelist:write`). Body:
 ```json
 {
   "type": "name",
@@ -132,7 +137,7 @@ Token required (write permission). Body:
 ```
 PUT /api/whitelist/entries/<entry_id>
 ```
-Token required (write permission). All fields are optional — only provided fields will be updated. Body:
+Token required (`whitelist:write`). All fields are optional — only provided fields will be updated. Body:
 ```json
 {
   "value": "NewPlayerName",
@@ -145,13 +150,13 @@ Token required (write permission). All fields are optional — only provided fie
 ```
 DELETE /api/whitelist/entries/<type>/<value>?server_id=<id>
 ```
-Token required (delete permission). `server_id` is **required**.
+Token required (`whitelist:delete`). `server_id` is **required**.
 
 ### Log Login Event
 ```
 POST /api/login/log
 ```
-Token required (write permission). Body:
+Token required (`login:log`). Body:
 ```json
 {
   "player_name": "SkyDream",
@@ -167,7 +172,7 @@ Token required (write permission). Body:
 ```
 POST /api/login/logout
 ```
-Token required (write permission). Body:
+Token required (`login:log`). Body:
 ```json
 {
   "player_name": "SkyDream",
@@ -182,17 +187,30 @@ Automatically calculates online duration. If no open session exists (e.g. server
 ```
 GET /api/tokens/verify
 ```
-Token required. Returns token status, permissions, and validity.
+Any valid token can call this. Returns token status, permissions, and validity.
 
 ### Authentication
 - Header: `Authorization: Bearer <token>` (recommended)
 - Or: `?token=<token>` query parameter
 
 ### Token Permissions
-- **Read** — sync whitelist
-- **Write** — add entries, log events
-- **Delete** — delete entries
-- **Manage** — admin operations
+
+Fine-grained permission strings — each token can have multiple:
+
+| Permission | Endpoint |
+|------------|----------|
+| `whitelist:read` | `GET /api/whitelist/sync` |
+| `whitelist:write` | `POST/PUT /api/whitelist/entries` |
+| `whitelist:delete` | `DELETE /api/whitelist/entries/<type>/<value>` |
+| `login:log` | `POST /api/login/log`, `POST /api/login/logout` |
+| `*:*` | All endpoints (super admin) |
+
+**Preset combinations**:
+| Preset | Includes |
+|--------|----------|
+| Server (Full) | `whitelist:read` + `whitelist:write` + `whitelist:delete` + `login:log` |
+| Server (Basic) | `whitelist:read` + `login:log` |
+| Read Only | `whitelist:read` |
 
 ## Whitelist JSON Import/Export
 
@@ -242,11 +260,11 @@ Minimal required fields per entry:
 The built-in web interface provides:
 
 - **Dashboard** — KPI cards, login trend charts (whitelist/guest breakdown), quick actions
-- **Whitelist Management** — CRUD with server_id scoping, JSON import/export
+- **Whitelist Management** — CRUD with server_id scoping, JSON import/export, **batch enable/disable/delete**
 - **Login Logs** — filterable by server, event type (allow/deny/logout), player search
 - **System Logs** — with health check filtering, log statistics
 - **User Analytics** — per-player online timeline, session records, IP geolocation, server vitality overview with player rankings
-- **Token Management** — create/manage API tokens with granular permissions
+- **Token Management** — create/manage API tokens with fine-grained permission checkboxes and presets
 - **Settings** — timezone, language, server configuration
 - **API Documentation** — built-in interactive docs
 
@@ -257,23 +275,26 @@ i18n: Switch between 简体中文 and English via the topbar language selector.
 ```
 .
 ├── app.py                     # Application entrypoint
-├── config.py                  # Configuration classes
+├── config.py                  # Configuration classes (DEV_MODE switch)
 ├── routes/
 │   ├── api.py                 # All API endpoints
-│   ├── web.py                 # Web UI routes
-│   └── auth.py                # Authentication routes
+│   ├── web.py                 # Web UI routes (incl. batch operations)
+│   └── auth.py                # Authentication routes (incl. rate limiting)
 ├── models/                    # DB models
 │   ├── whitelist.py           # WhitelistEntry
-│   ├── token.py               # API Token
+│   ├── token.py               # API Token (hashed storage + JSON permissions)
 │   ├── log.py                 # System/Login logs
 │   ├── session.py             # LoginSession (login/logout tracking)
 │   ├── server_status.py       # Server heartbeat tracking
 │   ├── user.py                # User accounts
 │   └── setting.py             # System settings
+├── utils/
+│   ├── auth.py                # Auth decorators (fine-grained permissions)
+│   └── permissions.py         # Permission constants
 ├── templates/                 # Jinja2 templates
 ├── static/                    # CSS/JS assets
 ├── translations/              # i18n (.po/.mo files)
-├── instance/                  # default SQLite database
+├── instance/                  # default SQLite database + secret_key
 └── requirements.txt
 ```
 
@@ -286,7 +307,7 @@ gunicorn -w 4 -b 0.0.0.0:5000 "app:app"
 ```
 
 **Security recommendations:**
-- Set a strong `SECRET_KEY`
+- Set `DEV_MODE = False` in `config.py`
 - Serve via HTTPS (reverse proxy like Nginx + TLS)
 - Use PostgreSQL/MySQL for production
 - Restrict admin UI access
@@ -307,7 +328,7 @@ pybabel compile -d translations
 ## Troubleshooting
 
 - **SQLite "Database locked"**: Use PostgreSQL for concurrent writes in production
-- **Token 401/403**: Verify token exists and has required permissions
+- **Token 401/403**: Verify token exists and has the required permission (e.g. `whitelist:read`)
 - **Missing `server_id` column**: Run `ALTER TABLE whitelist_entries ADD COLUMN server_id VARCHAR(36) NOT NULL DEFAULT 'default'`
 - **Missing `login_sessions` table**: Ensure Flask app starts with model imports to auto-create tables, or run manual migration
 

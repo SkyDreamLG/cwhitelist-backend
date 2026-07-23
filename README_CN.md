@@ -17,19 +17,24 @@
 
 CWhitelist 后端是一个基于 Flask 的轻量级服务，提供 REST API 用于白名单同步、管理和登录日志记录，并附带网页管理界面。适合作为 CWhitelist Minecraft 模组（或其他客户端）的中心化数据中心。
 
-**当前版本：2.0.0**
+**当前版本：2.1.0**
 
 ## 主要功能
 
-- 基于 Token 的 RESTful API 认证
+- 基于 Token 的 RESTful API 认证，Token 哈希存储（不可逆）
+- 细粒度权限系统（`whitelist:read/write/delete`、`login:log`），支持预设组合和 `*:*` 超级权限
+- 登录接口暴力破解防护（IP 级限流）
 - 服务器健康检查与心跳追踪，超时自动离线检测
 - 白名单同步接口（按 server_id 划分，支持 name/uuid/ip）
 - 通过 API 添加/编辑/删除白名单条目，均需 server_id 范围限定
+- 白名单批量操作（批量启用/禁用/删除）
 - 登入/登出事件上报，自动计算在线时长
 - 玩家数据分析仪表板 — 在线时间图、IP 地理位置、服务器活力排行
 - 管理后台 Web UI，支持国际化（简体中文 / English）
 - 服务器状态监控，自动清理离线服务器的会话
 - 全页面时区感知的时间显示
+- dev_mode 一键切换开发/生产环境
+- SECRET_KEY 自动生成并持久化，无需手动配置
 - 命令行启动，可选 GUI 配置
 
 ## 快速开始
@@ -72,17 +77,18 @@ python app.py --host 0.0.0.0 --port 5000 --no-gui
 
 | 变量 | 说明 | 默认值 |
 |----------|-------------|---------|
-| `SECRET_KEY` | Flask 密钥 | 自动生成（生产环境务必修改） |
+| `DEV_MODE` | 开发/生产开关（`config.py` 第 8 行） | `True`（开发） |
+| `SECRET_KEY` | Flask 密钥 | 自动生成并持久化到 `instance/secret_key` |
 | `TIMEZONE` | 默认时区 | `Asia/Shanghai` |
 | `DATABASE_URL` | SQLAlchemy 连接字符串 | `sqlite:///instance/cwhitelist.db` |
-| `SESSION_TYPE` | 会话存储方式 | `filesystem` |
-| `PERMANENT_SESSION_LIFETIME` | 会话超时 | 60 分钟 |
+| `CORS_ORIGINS` | 允许的跨域域名（逗号分隔） | 空（仅同源） |
 
 ```bash
-export SECRET_KEY="replace-with-production-secret"
 export DATABASE_URL="sqlite:///instance/cwhitelist.db"
 python app.py --no-gui
 ```
+
+切换生产模式：编辑 `config.py` 第 8 行 `DEV_MODE = False`。
 
 ## API 概览
 
@@ -101,7 +107,7 @@ GET /api/health?server_id=<id>
   "server_id": "lobby",
   "timestamp": "2026-07-23T00:00:00Z",
   "service": "CWhitelist API",
-  "version": "2.0.0"
+  "version": "2.1.0"
 }
 ```
 
@@ -109,13 +115,13 @@ GET /api/health?server_id=<id>
 ```
 GET /api/whitelist/sync?server_id=<id>&only_active=true
 ```
-需要 Token（读取权限）。`server_id` **必填**。
+需要 Token（`whitelist:read`）。`server_id` **必填**。
 
 ### 添加白名单条目
 ```
 POST /api/whitelist/entries
 ```
-需要 Token（写入权限）。请求体：
+需要 Token（`whitelist:write`）。请求体：
 ```json
 {
   "type": "name",
@@ -130,7 +136,7 @@ POST /api/whitelist/entries
 ```
 PUT /api/whitelist/entries/<entry_id>
 ```
-需要 Token（写入权限）。所有字段为可选，仅更新提供的字段。请求体：
+需要 Token（`whitelist:write`）。所有字段为可选，仅更新提供的字段。请求体：
 ```json
 {
   "value": "NewPlayerName",
@@ -143,13 +149,13 @@ PUT /api/whitelist/entries/<entry_id>
 ```
 DELETE /api/whitelist/entries/<type>/<value>?server_id=<id>
 ```
-需要 Token（删除权限）。`server_id` **必填**。
+需要 Token（`whitelist:delete`）。`server_id` **必填**。
 
 ### 记录登入事件
 ```
 POST /api/login/log
 ```
-需要 Token（写入权限）。请求体：
+需要 Token（`login:log`）。请求体：
 ```json
 {
   "player_name": "SkyDream",
@@ -165,7 +171,7 @@ POST /api/login/log
 ```
 POST /api/login/logout
 ```
-需要 Token（写入权限）。请求体：
+需要 Token（`login:log`）。请求体：
 ```json
 {
   "player_name": "SkyDream",
@@ -180,17 +186,30 @@ POST /api/login/logout
 ```
 GET /api/tokens/verify
 ```
-需要 Token。返回 Token 状态、权限和有效期。
+任何有效 Token 均可调用。返回 Token 状态、权限和有效期。
 
 ### 认证方式
 - Header：`Authorization: Bearer <token>`（推荐）
 - 查询参数：`?token=<token>`
 
 ### Token 权限
-- **读取** — 同步白名单
-- **写入** — 添加条目、记录事件
-- **删除** — 删除条目
-- **管理** — 管理员操作
+
+细粒度权限字符串，每个 Token 可拥有多个：
+
+| 权限 | 端点 |
+|------|------|
+| `whitelist:read` | `GET /api/whitelist/sync` |
+| `whitelist:write` | `POST/PUT /api/whitelist/entries` |
+| `whitelist:delete` | `DELETE /api/whitelist/entries/<type>/<value>` |
+| `login:log` | `POST /api/login/log`、`POST /api/login/logout` |
+| `*:*` | 所有端点（超级权限） |
+
+**预设组合**：
+| 预设 | 包含权限 |
+|------|---------|
+| 服务器完整 | `whitelist:read` + `whitelist:write` + `whitelist:delete` + `login:log` |
+| 服务器基础 | `whitelist:read` + `login:log` |
+| 只读 | `whitelist:read` |
 
 ## 白名单 JSON 导入/导出
 
@@ -240,11 +259,11 @@ GET /api/tokens/verify
 内置管理后台提供：
 
 - **仪表板** — KPI 卡片、登陆趋势图（白名单/游客分类）、快速操作入口
-- **白名单管理** — 增删改查，按 server_id 划分，支持 JSON 导入/导出
+- **白名单管理** — 增删改查，按 server_id 划分，支持 JSON 导入/导出、**批量启用/禁用/删除**
 - **登陆日志** — 可按服务器、事件类型（允许/拒绝/登出）、玩家名筛选
 - **系统日志** — 支持忽略健康检查日志，日志级别统计
 - **用户分析** — 单人玩家在线时间线、会话记录、IP 地理位置、服务器活力总览与玩家排行
-- **Token 管理** — 创建/管理 API Token，支持细粒度权限
+- **Token 管理** — 创建/管理 API Token，支持细粒度权限选择和预设组合
 - **设置** — 时区、语言、服务器配置
 - **API 文档** — 内置交互式文档
 
@@ -255,23 +274,26 @@ GET /api/tokens/verify
 ```
 .
 ├── app.py                     # 应用入口
-├── config.py                  # 配置类
+├── config.py                  # 配置类（DEV_MODE 开关）
 ├── routes/
 │   ├── api.py                 # 所有 API 接口
-│   ├── web.py                 # Web UI 路由
-│   └── auth.py                # 认证路由
+│   ├── web.py                 # Web UI 路由（含批量操作）
+│   └── auth.py                # 认证路由（含登录限流）
 ├── models/                    # 数据模型
 │   ├── whitelist.py           # WhitelistEntry
-│   ├── token.py               # API Token
+│   ├── token.py               # API Token（哈希存储 + JSON 权限）
 │   ├── log.py                 # 系统/登陆日志
 │   ├── session.py             # LoginSession（登入/登出追踪）
 │   ├── server_status.py       # 服务器心跳追踪
 │   ├── user.py                # 用户账号
 │   └── setting.py             # 系统设置
+├── utils/
+│   ├── auth.py                # 认证装饰器（细粒度权限）
+│   └── permissions.py         # 权限常量定义
 ├── templates/                 # Jinja2 模板
 ├── static/                    # CSS/JS 资源
 ├── translations/              # 国际化文件 (.po/.mo)
-├── instance/                  # 默认 SQLite 数据库
+├── instance/                  # 默认 SQLite 数据库 + secret_key
 └── requirements.txt
 ```
 
@@ -284,7 +306,7 @@ gunicorn -w 4 -b 0.0.0.0:5000 "app:app"
 ```
 
 **安全建议：**
-- 设置强 `SECRET_KEY`
+- 编辑 `config.py` 设置 `DEV_MODE = False`
 - 使用反向代理（Nginx）+ TLS
 - 生产环境使用 PostgreSQL/MySQL
 - 限制管理界面访问权限
@@ -305,7 +327,7 @@ pybabel compile -d translations
 ## 常见问题
 
 - **SQLite "数据库被锁定"**：生产建议使用 PostgreSQL
-- **Token 401/403**：确认 Token 存在且权限正确
+- **Token 401/403**：确认 Token 存在且拥有对应权限（如 `whitelist:read`）
 - **缺少 `server_id` 列**：执行 `ALTER TABLE whitelist_entries ADD COLUMN server_id VARCHAR(36) NOT NULL DEFAULT 'default'`
 - **缺少 `login_sessions` 表**：确保 Flask 启动时模型正确导入以自动建表，或手动迁移
 
