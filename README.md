@@ -181,6 +181,49 @@ Token required. Returns token status, permissions, and validity.
 - **Delete** — delete entries
 - **Manage** — admin operations
 
+## Whitelist JSON Import/Export
+
+### Export format
+```json
+[
+  {
+    "type": "name",
+    "value": "SkyDream_LG",
+    "server_id": "lobby",
+    "description": "Admin player",
+    "created_by": "admin",
+    "created_at": "2026-07-23T10:00:00",
+    "expires_at": null,
+    "is_active": true
+  },
+  {
+    "type": "uuid",
+    "value": "117a97e0-10ad-338d-aae2-54c4ec32959f",
+    "server_id": "survival",
+    "description": "",
+    "created_by": "admin",
+    "created_at": "2026-07-23T10:05:00",
+    "expires_at": "2026-12-31T23:59:59",
+    "is_active": true
+  }
+]
+```
+
+### Import format
+Minimal required fields per entry:
+```json
+[
+  {"type": "name", "value": "PlayerName", "server_id": "lobby"},
+  {"type": "uuid", "value": "117a97e0-10ad-338d-aae2-54c4ec32959f", "server_id": "lobby"},
+  {"type": "ip", "value": "192.168.1.100", "server_id": "survival"}
+]
+```
+- `type`: `name`, `uuid`, or `ip` (required)
+- `value`: the entry value (required)
+- `server_id`: can be specified per-entry in JSON, or set globally via the import form (required)
+- `description`: optional
+- `is_active`: optional, defaults to `true`
+
 ## Web Admin UI
 
 The built-in web interface provides:

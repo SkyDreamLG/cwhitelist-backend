@@ -2,7 +2,7 @@
 
 <div align="center">
   <br>
-  <em>📡 面向 API 的 CWhitelist 后端与管理界面 —— 为 Minecraft 白名单管理提供中心化服务。</em>
+  <em>面向 API 的 CWhitelist 后端与管理界面 —— 为 Minecraft 白名单管理提供中心化服务。</em>
 </div>
 
 <p align="center">
@@ -15,19 +15,22 @@
 
 中文 | [English](./README.md)
 
-CWhitelist 后端是一个基于 Flask 的轻量级服务，提供用于白名单同步、管理和登录日志记录的 REST API，并附带网页管理界面（模板已包含）。该后端适合作为 CWhitelist Minecraft 模组或其它客户端的数据中心。
+CWhitelist 后端是一个基于 Flask 的轻量级服务，提供 REST API 用于白名单同步、管理和登录日志记录，并附带网页管理界面。适合作为 CWhitelist Minecraft 模组（或其他客户端）的中心化数据中心。
+
+**当前版本：2.0.0**
 
 ## 主要功能
 
-- 基于 Token 的 API 认证（支持 Header 或 query 参数）
-- 健康检查接口，便于监控
-- 白名单同步接口，可按是否激活与服务器 ID 过滤
-- 通过 API 添加 / 删除白名单条目（支持 name、uuid、ip）
-- 登录事件上报接口（用于记录玩家登录尝试）
-- 管理界面与内置 API 文档页（templates/api_docs.html）
-- 默认使用 SQLite，支持通过环境变量切换数据库
-- 会话与文件上传目录支持
-- 启动脚本支持命令行参数与可选 GUI 配置提示
+- 基于 Token 的 RESTful API 认证
+- 服务器健康检查与心跳追踪，超时自动离线检测
+- 白名单同步接口（按 server_id 划分，支持 name/uuid/ip）
+- 通过 API 添加/删除白名单条目，均需 server_id 范围限定
+- 登入/登出事件上报，自动计算在线时长
+- 玩家数据分析仪表板 — 在线时间图、IP 地理位置、服务器活力排行
+- 管理后台 Web UI，支持国际化（简体中文 / English）
+- 服务器状态监控，自动清理离线服务器的会话
+- 全页面时区感知的时间显示
+- 命令行启动，可选 GUI 配置
 
 ## 快速开始
 
@@ -51,11 +54,9 @@ source venv/bin/activate   # Windows: venv\Scripts\activate
 ```bash
 pip install -r requirements.txt
 ```
-（如果仓库没有 requirements.txt，至少安装 Flask、SQLAlchemy、Flask-Login、Flask-Session 等：`pip install Flask SQLAlchemy Flask-Login Flask-Session`）
 
 4. 运行应用
 ```bash
-# 默认监听 0.0.0.0:5000
 python app.py
 
 # 带选项运行
@@ -63,27 +64,21 @@ python app.py --host 0.0.0.0 --port 5000 --no-gui
 ```
 
 5. 打开管理界面
-- 启动后控制台会输出地址（例如 http://127.0.0.1:5000），在浏览器中访问以查看后台管理 UI 和 API 文档。
+- 启动后在浏览器中访问（默认 http://127.0.0.1:5000），首次运行需完成 OOBE 初始化向导创建管理员账号。
 
 ## 配置
 
-通过 config.py 与环境变量配置。常用配置项：
+通过 `config.py` 与环境变量配置：
 
-- SECRET_KEY — Flask 密钥（环境变量：SECRET_KEY）
-- TIMEZONE — 时区（环境变量：TIMEZONE）
-- DATABASE_URL — SQLAlchemy 连接字符串（环境变量：DATABASE_URL），默认：
-  sqlite:///instance/cwhitelist.db
-- SESSION_TYPE — 会话类型（默认 filesystem）
-- PERMANENT_SESSION_LIFETIME — 会话过期时间（默认 60 分钟）
-- API_PREFIX — API 前缀（默认 /api）
-- API_VERSION — 版本（默认 v1）
-- UPLOAD_FOLDER — 上传目录
+| 变量 | 说明 | 默认值 |
+|----------|-------------|---------|
+| `SECRET_KEY` | Flask 密钥 | 自动生成（生产环境务必修改） |
+| `TIMEZONE` | 默认时区 | `Asia/Shanghai` |
+| `DATABASE_URL` | SQLAlchemy 连接字符串 | `sqlite:///instance/cwhitelist.db` |
+| `SESSION_TYPE` | 会话存储方式 | `filesystem` |
+| `PERMANENT_SESSION_LIFETIME` | 会话超时 | 60 分钟 |
 
-可通过 FLASK_CONFIG 环境变量选择配置类（例如 `config.DevelopmentConfig` 或 `config.ProductionConfig`）。
-
-示例（Linux / macOS）：
 ```bash
-export FLASK_CONFIG=config.DevelopmentConfig
 export SECRET_KEY="replace-with-production-secret"
 export DATABASE_URL="sqlite:///instance/cwhitelist.db"
 python app.py --no-gui
@@ -91,130 +86,219 @@ python app.py --no-gui
 
 ## API 概览
 
-基础路径：{host}{API_PREFIX}（默认 /api）
+基础路径：`{host}/api`
 
-- GET /api/health
-  - 健康检查（无需认证）
-  - 示例响应：
-  ```json
+### 健康检查
+```
+GET /api/health?server_id=<id>
+```
+无需认证。`server_id` **必填**，同时作为服务器心跳上报。若某服务器超过 60 秒未上报心跳，其所有未关闭的玩家会话将自动关闭。
+
+```json
+{
+  "success": true,
+  "status": "ok",
+  "server_id": "lobby",
+  "timestamp": "2026-07-23T00:00:00Z",
+  "service": "CWhitelist API",
+  "version": "2.0.0"
+}
+```
+
+### 同步白名单
+```
+GET /api/whitelist/sync?server_id=<id>&only_active=true
+```
+需要 Token（读取权限）。`server_id` **必填**。
+
+### 添加白名单条目
+```
+POST /api/whitelist/entries
+```
+需要 Token（写入权限）。请求体：
+```json
+{
+  "type": "name",
+  "value": "PlayerName",
+  "server_id": "lobby",
+  "description": "VIP Player",
+  "expires_at": "2026-12-31T23:59:59Z"
+}
+```
+
+### 删除白名单条目
+```
+DELETE /api/whitelist/entries/<type>/<value>?server_id=<id>
+```
+需要 Token（删除权限）。`server_id` **必填**。
+
+### 记录登入事件
+```
+POST /api/login/log
+```
+需要 Token（写入权限）。请求体：
+```json
+{
+  "player_name": "SkyDream",
+  "player_uuid": "xxx-xxx-xxx",
+  "player_ip": "192.168.1.100",
+  "allowed": true,
+  "server_id": "lobby",
+  "check_type": "name"
+}
+```
+
+### 记录登出事件
+```
+POST /api/login/logout
+```
+需要 Token（写入权限）。请求体：
+```json
+{
+  "player_name": "SkyDream",
+  "player_uuid": "xxx-xxx-xxx",
+  "player_ip": "192.168.1.100",
+  "server_id": "lobby"
+}
+```
+自动计算在线时长。若无已打开的会话（如服务器刚恢复），则以服务器恢复时间作为登入时间自动创建会话。
+
+### 验证 Token
+```
+GET /api/tokens/verify
+```
+需要 Token。返回 Token 状态、权限和有效期。
+
+### 认证方式
+- Header：`Authorization: Bearer <token>`（推荐）
+- 查询参数：`?token=<token>`
+
+### Token 权限
+- **读取** — 同步白名单
+- **写入** — 添加条目、记录事件
+- **删除** — 删除条目
+- **管理** — 管理员操作
+
+## 白名单 JSON 导入/导出
+
+### 导出格式
+```json
+[
   {
-    "success": true,
-    "status": "ok",
-    "timestamp": "2024-01-01T00:00:00Z",
-    "service": "CWhitelist API",
-    "version": "1.0.0"
+    "type": "name",
+    "value": "SkyDream_LG",
+    "server_id": "lobby",
+    "description": "管理员玩家",
+    "created_by": "admin",
+    "created_at": "2026-07-23T10:00:00",
+    "expires_at": null,
+    "is_active": true
+  },
+  {
+    "type": "uuid",
+    "value": "117a97e0-10ad-338d-aae2-54c4ec32959f",
+    "server_id": "survival",
+    "description": "",
+    "created_by": "admin",
+    "created_at": "2026-07-23T10:05:00",
+    "expires_at": "2026-12-31T23:59:59",
+    "is_active": true
   }
-  ```
+]
+```
 
-- GET /api/whitelist/sync
-  - 同步白名单条目
-  - 需要 Token（Header 或 ?token=）
-  - 查询参数：
-    - server_id（可选）
-    - only_active（默认 true）
-    - include_expired（可选）
-  - 示例：
-    ```
-    curl -H "Authorization: Bearer YOUR_TOKEN" "http://host:5000/api/whitelist/sync?only_active=true"
-    ```
+### 导入格式
+每个条目的最小必填字段：
+```json
+[
+  {"type": "name", "value": "PlayerName", "server_id": "lobby"},
+  {"type": "uuid", "value": "117a97e0-10ad-338d-aae2-54c4ec32959f", "server_id": "lobby"},
+  {"type": "ip", "value": "192.168.1.100", "server_id": "survival"}
+]
+```
+- `type`：`name`、`uuid` 或 `ip`（必填）
+- `value`：条目值（必填）
+- `server_id`：可在 JSON 中每个条目单独指定，也可通过导入表单统一设置（必填）
+- `description`：可选
+- `is_active`：可选，默认 `true`
 
-- POST /api/whitelist/entries
-  - 添加白名单条目
-  - 请求体 JSON：{ "type": "name|uuid|ip", "value": "<值>", "description": "", "expires_at": "ISO8601", "is_active": true }
-  - 需要拥有写权限的 Token
+## Web 管理界面
 
-- DELETE /api/whitelist/entries/<type>/<value>
-  - 按类型和值删除条目
-  - 需要拥有删除权限的 Token
+内置管理后台提供：
 
-- POST /api/login/log
-  - 上报玩家登录事件（player_name, player_uuid, player_ip, allowed, check_type）
-  - 需要写权限的 Token
+- **仪表板** — KPI 卡片、登陆趋势图（白名单/游客分类）、快速操作入口
+- **白名单管理** — 增删改查，按 server_id 划分，支持 JSON 导入/导出
+- **登陆日志** — 可按服务器、事件类型（允许/拒绝/登出）、玩家名筛选
+- **系统日志** — 支持忽略健康检查日志，日志级别统计
+- **用户分析** — 单人玩家在线时间线、会话记录、IP 地理位置、服务器活力总览与玩家排行
+- **Token 管理** — 创建/管理 API Token，支持细粒度权限
+- **设置** — 时区、语言、服务器配置
+- **API 文档** — 内置交互式文档
 
-- GET /api/tokens/verify
-  - 校验 Token 状态与权限
+国际化：通过顶栏语言选择器切换简体中文 / English。
 
-认证方式：
-- 推荐使用 Header：Authorization: Bearer <token>
-- 也支持 ?token=<token> 作为回退
-
-权限粒度（系统内 Token 字段）：
-- Read：同步白名单
-- Write：添加条目 / 记录事件
-- Delete：删除条目
-- Manage：管理型权限（用户/Token 管理等）
-
-详见内置 API 文档页面 templates/api_docs.html 中的示例与说明。
-
-## 重要文件与目录（选取）
+## 主要文件与目录
 
 ```
 .
-├── app.py                 # 应用入口与 CLI 启动逻辑
-├── config.py              # 配置类与默认值
+├── app.py                     # 应用入口
+├── config.py                  # 配置类
 ├── routes/
-│   └── api.py             # API 路由（health、sync、add/delete、login log）
-├── models/                # 数据模型（WhitelistEntry、Token、Log 等）
-├── templates/             # 管理界面与 API 文档模板
-├── instance/              # 默认数据库与实例数据目录（sqlite）
-└── requirements.txt       # Python 依赖（如果存在）
-```
-
-## 数据库
-
-默认：SQLite（instance/cwhitelist.db）。生产环境建议使用 PostgreSQL 或 MySQL，并通过 DATABASE_URL 指定。
-
-示例（Postgres）：
-```
-export DATABASE_URL="postgresql://user:password@db_host:5432/cwhitelist"
+│   ├── api.py                 # 所有 API 接口
+│   ├── web.py                 # Web UI 路由
+│   └── auth.py                # 认证路由
+├── models/                    # 数据模型
+│   ├── whitelist.py           # WhitelistEntry
+│   ├── token.py               # API Token
+│   ├── log.py                 # 系统/登陆日志
+│   ├── session.py             # LoginSession（登入/登出追踪）
+│   ├── server_status.py       # 服务器心跳追踪
+│   ├── user.py                # 用户账号
+│   └── setting.py             # 系统设置
+├── templates/                 # Jinja2 模板
+├── static/                    # CSS/JS 资源
+├── translations/              # 国际化文件 (.po/.mo)
+├── instance/                  # 默认 SQLite 数据库
+└── requirements.txt
 ```
 
 ## 生产部署建议
 
-- 使用 Gunicorn（或其它 WSGI 服务器）：
-  ```
-  pip install gunicorn
-  gunicorn -w 4 -b 0.0.0.0:5000 "app:app"
-  ```
-- 使用反向代理（如 Nginx）并启用 HTTPS（TLS）
-- 使用 Docker（如添加 Dockerfile）并挂载持久化数据卷
-- 使用 systemd / supervisord 管理进程
-- 设置强 Secret Key、数据库备份和访问控制
+**Gunicorn（WSGI）：**
+```bash
+pip install gunicorn
+gunicorn -w 4 -b 0.0.0.0:5000 "app:app"
+```
 
-## 开发与测试
+**安全建议：**
+- 设置强 `SECRET_KEY`
+- 使用反向代理（Nginx）+ TLS
+- 生产环境使用 PostgreSQL/MySQL
+- 限制管理界面访问权限
 
-- 建议使用虚拟环境并安装 dev 依赖
-- 本地调试：
-  ```
-  python app.py --debug
-  ```
-- 如果添加测试，建议使用 pytest 并在 CI 中运行
+## 开发
 
-## 常见问题与故障排查
+```bash
+python app.py --debug
+```
 
-- SQLite 出现 "database is locked"：
-  - SQLite 对并发写支持有限，生产请使用 Postgres/MySQL。
-- Token ��证失败：
-  - 确认 Token 存在数据库且权限（can_read/can_write/can_delete）正确；可调用 /api/tokens/verify。
-- API 返回 403（权限不足）：
-  - Token 缺少对应权限范围。
+修改模板后更新翻译：
+```bash
+pybabel extract -F babel.cfg -o messages.pot .
+pybabel update -i messages.pot -d translations
+pybabel compile -d translations
+```
 
-后端将通过 Log 模型记录详细日志，运行时也可能输出到控制台，检查日志以获取更多错误上下文。
+## 常见问题
 
-## 贡献
+- **SQLite "数据库被锁定"**：生产建议使用 PostgreSQL
+- **Token 401/403**：确认 Token 存在且权限正确
+- **缺少 `server_id` 列**：执行 `ALTER TABLE whitelist_entries ADD COLUMN server_id VARCHAR(36) NOT NULL DEFAULT 'default'`
+- **缺少 `login_sessions` 表**：确保 Flask 启动时模型正确导入以自动建表，或手动迁移
 
-欢迎贡献！流程建议：
-1. Fork 仓库
-2. 新建功能分支：git checkout -b feature/your-feature
-3. 提交并推送：git commit -m "Add feature" && git push
-4. 发起 Pull Request
+## 许可证
 
-请为新功能附上测试与文档，并保持向后兼容性。
-
-## 许可证与致谢
-
-- 许可证请参阅仓库中的 LICENSE 文件（如存在）。
-- 感谢所有贡献者与社区的反馈与测试。
+GNU General Public License v3.0
 
 ## 支持
 

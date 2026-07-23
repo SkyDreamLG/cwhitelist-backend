@@ -131,7 +131,7 @@
                         <label class="form-label">{{ _('选择JSON文件') }}</label>
                         <input type="file" class="form-control" name="json_file" accept=".json" required>
                         <div class="form-text">
-                            {{ _('支持格式: [{"type":"name","value":"玩家名"}, {"type":"uuid","value":"uuid"}, {"type":"ip","value":"IP地址"}]') }}
+                            {{ _('支持格式: {"type":"name","value":"玩家名","server_id":"服务器ID"} 数组，server_id可写在各条目中或通过上面统一指定') }}
                         </div>
                     </div>
 
@@ -160,9 +160,9 @@
                 <div class="alert alert-info">
                     <h6><i class="bi bi-info-circle me-2"></i>{{ _('JSON格式示例') }}</h6>
                     <pre class="mb-0 mt-2" style="font-size: 12px;">[
-  {"type": "uuid", "value": "117a97e0-10ad-338d-aae2-54c4ec32959f"},
-  {"type": "name", "value": "SkyDream_LG"},
-  {"type": "ip", "value": "192.168.50.127"}
+  {"type": "uuid", "value": "117a97e0-10ad-338d-aae2-54c4ec32959f", "server_id": "lobby"},
+  {"type": "name", "value": "SkyDream_LG", "server_id": "lobby"},
+  {"type": "ip", "value": "192.168.50.127", "server_id": "lobby"}
 ]</pre>
                 </div>
             </div>

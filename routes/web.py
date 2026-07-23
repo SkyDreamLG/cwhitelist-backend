@@ -924,6 +924,12 @@ def import_whitelist():
 
                 entry_type = item['type'].lower().strip()
                 value = item['value'].strip()
+                # 支持每个条目独立server_id，fallback到表单值
+                entry_server_id = item.get('server_id', '').strip() or server_id
+
+                if not entry_server_id:
+                    error_count += 1
+                    continue
 
                 # 验证类型
                 if entry_type not in ['name', 'uuid', 'ip']:
@@ -934,7 +940,7 @@ def import_whitelist():
                 existing = WhitelistEntry.query.filter_by(
                     type=entry_type,
                     value=value,
-                    server_id=server_id
+                    server_id=entry_server_id
                 ).first()
 
                 if existing and skip_existing:
@@ -951,7 +957,7 @@ def import_whitelist():
                     entry = WhitelistEntry(
                         type=entry_type,
                         value=value,
-                        server_id=server_id,
+                        server_id=entry_server_id,
                         description=description,
                         created_by=current_user.username,
                         is_active=not set_inactive
@@ -1023,6 +1029,7 @@ def export_whitelist():
             export_data.append({
                 'type': entry.type,
                 'value': entry.value,
+                'server_id': entry.server_id,
                 'description': entry.description,
                 'created_by': entry.created_by,
                 'created_at': entry.created_at.isoformat() if entry.created_at else None,
