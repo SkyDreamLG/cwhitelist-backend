@@ -1,8 +1,9 @@
 # routes/web.py
-from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify, session
+from flask import Blueprint, render_template, request, flash, redirect, url_for, jsonify, session, current_app
 from flask_login import login_required, current_user
-from sqlalchemy import desc, or_, inspect
-from datetime import datetime
+from flask_babel import _
+from sqlalchemy import desc, or_, inspect, func
+from datetime import datetime, timedelta
 import traceback
 
 import json
@@ -17,6 +18,23 @@ from models.setting import Setting
 from models.log import Log
 
 web_bp = Blueprint('web', __name__)
+
+
+def is_whitelist_user(player_name=None, player_uuid=None, player_ip=None):
+    """检查玩家是否为白名单用户（name/UUID/IP任意匹配）"""
+    if player_name:
+        entry = WhitelistEntry.query.filter_by(type='name', value=player_name, is_active=True).first()
+        if entry:
+            return True
+    if player_uuid:
+        entry = WhitelistEntry.query.filter_by(type='uuid', value=player_uuid, is_active=True).first()
+        if entry:
+            return True
+    if player_ip:
+        entry = WhitelistEntry.query.filter_by(type='ip', value=player_ip, is_active=True).first()
+        if entry:
+            return True
+    return False
 
 
 # OOBE 检查函数 - 简化版本
@@ -55,36 +73,110 @@ def index():
     return redirect(url_for('auth.login'))
 
 
+@web_bp.route('/set-language', methods=['POST'])
+def set_language():
+    """设置界面语言"""
+    lang = request.form.get('lang', '')
+    if lang in current_app.config.get('LANGUAGES', {}):
+        session['lang'] = lang
+        return jsonify({'success': True, 'lang': lang})
+    return jsonify({'success': False, 'error': 'Invalid language'})
+
+
 @web_bp.route('/dashboard')
 @login_required
 def dashboard():
     """仪表板"""
 
-    # 获取统计信息
+    # 白名单统计
     total_entries = WhitelistEntry.query.count()
     active_entries = WhitelistEntry.query.filter_by(is_active=True).count()
+    inactive_entries = total_entries - active_entries
 
-    # 获取日志统计
+    # 过期条目
+    expired_count = WhitelistEntry.query.filter(
+        WhitelistEntry.expires_at.isnot(None),
+        WhitelistEntry.expires_at < datetime.utcnow()
+    ).count()
+
+    # 服务器数量（白名单 + 登陆日志中不重复的server_id）
+    whitelist_servers = set(row[0] for row in db.session.query(WhitelistEntry.server_id).filter(WhitelistEntry.server_id.isnot(None)).distinct().all())
+    log_servers = set(row[0] for row in db.session.query(Log.server_id).filter(Log.server_id.isnot(None), Log.level == 'login').distinct().all())
+    total_servers = len(whitelist_servers | log_servers)
+
+    # 登陆日志统计
+    total_logins = Log.query.filter_by(level='login').count()
+    today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today_logins = Log.query.filter(Log.level == 'login', Log.created_at >= today).count()
+
+    # 登陆趋势（最近7天）- 区分白名单/游客
+    from collections import defaultdict
+    login_trend = defaultdict(int)
+    login_trend_wl = defaultdict(int)
+    login_trend_guest = defaultdict(int)
+    for i in range(6, -1, -1):
+        day_start = today - timedelta(days=i)
+        day_end = day_start + timedelta(days=1)
+        day_logs = Log.query.filter(
+            Log.level == 'login',
+            Log.created_at >= day_start,
+            Log.created_at < day_end
+        ).all()
+        day_key = day_start.strftime('%m-%d')
+        login_trend[day_key] = len(day_logs)
+        login_trend_wl[day_key] = 0
+        login_trend_guest[day_key] = 0
+        for log_entry in day_logs:
+            if is_whitelist_user(player_name=log_entry.player_name, player_uuid=log_entry.player_uuid):
+                login_trend_wl[day_key] += 1
+            else:
+                login_trend_guest[day_key] += 1
+
+    # 允许/拒绝统计
+    allowed_logins = Log.query.filter(
+        Log.level == 'login',
+        Log.details.like('%allowed: True%')
+    ).count()
+    denied_logins = total_logins - allowed_logins
+
+    # 日志统计
     log_stats = {
         'total': Log.query.count(),
         'info': Log.query.filter_by(level='info').count(),
         'warning': Log.query.filter_by(level='warning').count(),
         'error': Log.query.filter_by(level='error').count(),
-        'login': Log.query.filter_by(level='login').count(),
+        'login': total_logins,
     }
 
-    # 获取用户统计
+    # 用户统计
     from models.user import User
     user_count = User.query.count()
 
-    # 获取最近添加的白名单条目
+    # 各服务器条目数
+    server_entry_counts = db.session.query(
+        WhitelistEntry.server_id,
+        func.count(WhitelistEntry.id)
+    ).group_by(WhitelistEntry.server_id).all()
+
+    # 最近添加的白名单条目
     recent_entries = WhitelistEntry.query.order_by(desc(WhitelistEntry.created_at)).limit(10).all()
 
     return render_template('dashboard.html',
                            total_entries=total_entries,
                            active_entries=active_entries,
+                           inactive_entries=inactive_entries,
+                           expired_count=expired_count,
+                           total_servers=total_servers,
+                           total_logins=total_logins,
+                           today_logins=today_logins,
+                           allowed_logins=allowed_logins,
+                           denied_logins=denied_logins,
+                           login_trend=login_trend,
+                           login_trend_wl=login_trend_wl,
+                           login_trend_guest=login_trend_guest,
                            log_stats=log_stats,
                            user_count=user_count,
+                           server_entry_counts=server_entry_counts,
                            recent_entries=recent_entries)
 
 
@@ -98,12 +190,16 @@ def whitelist():
     entry_type = request.args.get('type', '')
     search = request.args.get('search', '')
     active_only = request.args.get('active_only', 'false')
+    server_id = request.args.get('server_id', '')
 
     # 将字符串转换为布尔值
     active_only_bool = active_only == 'true'
 
     # 构建查询
     query = WhitelistEntry.query
+
+    if server_id:
+        query = query.filter_by(server_id=server_id)
 
     if entry_type:
         query = query.filter_by(type=entry_type)
@@ -147,13 +243,18 @@ def whitelist():
     filters_dict = {
         'type': entry_type,
         'search': search,
-        'active_only': active_only_bool
+        'active_only': active_only_bool,
+        'server_id': server_id
     }
+
+    # 获取所有唯一的server_id用于下拉菜单
+    server_ids = [row[0] for row in db.session.query(WhitelistEntry.server_id).distinct().order_by(WhitelistEntry.server_id).all()]
 
     return render_template('whitelist.html',
                            entries=entries_with_login_info,
                            pagination=pagination,
-                           filters=filters_dict)
+                           filters=filters_dict,
+                           server_ids=server_ids)
 
 
 @web_bp.route('/whitelist/add', methods=['POST'])
@@ -164,31 +265,38 @@ def add_whitelist():
 
     entry_type = request.form.get('type', '').strip().lower()
     value = request.form.get('value', '').strip()
+    server_id = request.form.get('server_id', '').strip()
     description = request.form.get('description', '').strip()
     expires_at = request.form.get('expires_at')
 
     if not entry_type or not value:
-        flash('请填写类型和值', 'error')
+        flash(_('请填写类型和值'), 'error')
+        return redirect(url_for('web.whitelist'))
+
+    if not server_id:
+        flash(_('请填写服务器ID'), 'error')
         return redirect(url_for('web.whitelist'))
 
     if entry_type not in ['name', 'uuid', 'ip']:
-        flash('类型必须为: name, uuid 或 ip', 'error')
+        flash(_('类型必须为: name, uuid 或 ip'), 'error')
         return redirect(url_for('web.whitelist'))
 
-    # 检查是否已存在
+    # 检查是否已存在（相同server_id下）
     existing = WhitelistEntry.query.filter_by(
         type=entry_type,
-        value=value
+        value=value,
+        server_id=server_id
     ).first()
 
     if existing:
-        flash('条目已存在', 'error')
+        flash(_('条目已存在'), 'error')
         return redirect(url_for('web.whitelist'))
 
     # 创建条目
     entry = WhitelistEntry(
         type=entry_type,
         value=value,
+        server_id=server_id,
         description=description,
         created_by=current_user.username,
         is_active=True
@@ -201,7 +309,7 @@ def add_whitelist():
             if local_dt:
                 entry.expires_at = local_to_utc(local_dt)
         except Exception as e:
-            flash(f'过期时间格式错误: {str(e)}', 'error')
+            flash(_('过期时间格式错误: %(error)s') % {'error': str(e)}, 'error')
             return redirect(url_for('web.whitelist'))
 
     db.session.add(entry)
@@ -219,7 +327,7 @@ def add_whitelist():
     db.session.add(log)
     db.session.commit()
 
-    flash('白名单条目添加成功', 'success')
+    flash(_('白名单条目添加成功'), 'success')
     return redirect(url_for('web.whitelist'))
 
 
@@ -229,7 +337,7 @@ def toggle_whitelist(entry_id):
     """切换白名单条目状态"""
     entry = WhitelistEntry.query.get(entry_id)
     if not entry:
-        flash('条目不存在', 'error')
+        flash(_('条目不存在'), 'error')
         return redirect(url_for('web.whitelist'))
 
     entry.is_active = not entry.is_active
@@ -247,8 +355,8 @@ def toggle_whitelist(entry_id):
     db.session.add(log)
     db.session.commit()
 
-    status = '启用' if entry.is_active else '禁用'
-    flash(f'条目已{status}', 'success')
+    status = _('启用') if entry.is_active else _('禁用')
+    flash(_('条目已%(status)s') % {'status': status}, 'success')
     return redirect(url_for('web.whitelist'))
 
 
@@ -258,7 +366,7 @@ def delete_whitelist(entry_id):
     """删除白名单条目"""
     entry = WhitelistEntry.query.get(entry_id)
     if not entry:
-        flash('条目不存在', 'error')
+        flash(_('条目不存在'), 'error')
         return redirect(url_for('web.whitelist'))
 
     # 记录操作日志
@@ -275,27 +383,34 @@ def delete_whitelist(entry_id):
     db.session.delete(entry)
     db.session.commit()
 
-    flash('条目已删除', 'success')
+    flash(_('条目已删除'), 'success')
     return redirect(url_for('web.whitelist'))
 
 
 @web_bp.route('/logs')
 @login_required
 def logs():
-    """日志查看"""
+    """系统日志查看（排除登陆日志）"""
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 50, type=int)
     level = request.args.get('level', '')
     source = request.args.get('source', '')
+    hide_health = request.args.getlist('hide_health')[-1] if request.args.getlist('hide_health') else '0'
 
-    # 构建查询
-    query = Log.query
+    # 构建查询 - 系统日志排除 login 级别
+    query = Log.query.filter(Log.level != 'login')
 
     if level:
         query = query.filter_by(level=level)
 
     if source:
         query = query.filter_by(source=source)
+
+    if hide_health == '1':
+        query = query.filter(
+            ~Log.message.ilike('%健康检查%'),
+            ~Log.message.ilike('%health%')
+        )
 
     # 分页
     pagination = query.order_by(desc(Log.created_at)).paginate(
@@ -306,16 +421,17 @@ def logs():
     level_stats = db.session.query(
         Log.level,
         db.func.count(Log.id)
-    ).group_by(Log.level).all()
+    ).filter(Log.level != 'login').group_by(Log.level).all()
 
     source_stats = db.session.query(
         Log.source,
         db.func.count(Log.id)
-    ).group_by(Log.source).all()
+    ).filter(Log.level != 'login').group_by(Log.source).all()
 
     filters = {
         'level': level,
-        'source': source
+        'source': source,
+        'hide_health': hide_health,
     }
 
     return render_template('logs.html',
@@ -326,12 +442,77 @@ def logs():
                            filters=filters)
 
 
+@web_bp.route('/logs/login')
+@login_required
+def login_logs():
+    """登陆日志查看"""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 50, type=int)
+    server_id = request.args.get('server_id', '')
+    show_success = request.args.getlist('show_success')[-1] if request.args.getlist('show_success') else '1'
+    show_denied = request.args.getlist('show_denied')[-1] if request.args.getlist('show_denied') else '1'
+    show_logout = request.args.getlist('show_logout')[-1] if request.args.getlist('show_logout') else '1'
+    player_search = request.args.get('player_search', '').strip()
+
+    # 构建查询 - 只查 login 级别
+    query = Log.query.filter_by(level='login')
+
+    if player_search:
+        query = query.filter(Log.player_name.ilike(f'%{player_search}%'))
+
+    if server_id:
+        query = query.filter_by(server_id=server_id)
+
+    # 事件类型筛选
+    conditions = []
+    if show_success == '1':
+        conditions.append(Log.details.like('%allowed: True%'))
+    if show_denied == '1':
+        conditions.append(Log.details.like('%allowed: False%'))
+    if show_logout == '1':
+        conditions.append(Log.details.like('%action: logout%'))
+    if conditions:
+        query = query.filter(or_(*conditions))
+
+    # 分页
+    pagination = query.order_by(desc(Log.created_at)).paginate(
+        page=page, per_page=per_page, error_out=False
+    )
+
+    # 获取所有唯一的 server_id 用于筛选下拉框
+    server_ids = db.session.query(Log.server_id).filter(
+        Log.server_id.isnot(None),
+        Log.level == 'login'
+    ).distinct().all()
+    server_ids = [s[0] for s in server_ids if s[0]]
+
+    # 所有玩家名用于搜索下拉
+    player_names = [row[0] for row in db.session.query(Log.player_name).filter(
+        Log.player_name.isnot(None), Log.level == 'login'
+    ).distinct().order_by(Log.player_name).all()]
+
+    filters = {
+        'server_id': server_id,
+        'show_success': show_success,
+        'show_denied': show_denied,
+        'show_logout': show_logout,
+        'player_search': player_search,
+    }
+
+    return render_template('login_logs.html',
+                           logs=pagination.items,
+                           pagination=pagination,
+                           server_ids=server_ids,
+                           player_names=player_names,
+                           filters=filters)
+
+
 @web_bp.route('/logs/clear', methods=['POST'])
 @login_required
 def clear_logs():
     """清空日志 - 修复版本"""
     if not current_user.is_admin():
-        flash('需要管理员权限', 'error')
+        flash(_('需要管理员权限'), 'error')
         return redirect(url_for('web.logs'))
 
     # 检查是否为测试请求
@@ -343,11 +524,11 @@ def clear_logs():
 
         if is_test:
             # 测试模式，不实际删除
-            flash(f'测试模式：当前有 {total_logs} 条日志，点击确认后将清空', 'info')
+            flash(_('测试模式：当前有 %(total)s 条日志，点击确认后将清空') % {'total': total_logs}, 'info')
             return redirect(url_for('web.logs'))
 
         if total_logs == 0:
-            flash('没有日志可清空', 'info')
+            flash(_('没有日志可清空'), 'info')
             return redirect(url_for('web.logs'))
 
         # 使用更可靠的方式删除日志
@@ -397,12 +578,12 @@ def clear_logs():
         db.session.add(operation_log)
         db.session.commit()
 
-        flash(f'成功清空 {deleted_count} 条日志，剩余 {remaining_count} 条', 'success')
+        flash(_('成功清空 %(deleted)s 条日志，剩余 %(remaining)s 条') % {'deleted': deleted_count, 'remaining': remaining_count}, 'success')
 
     except Exception as e:
         db.session.rollback()
         print(f"清空日志异常: {e}")
-        flash(f'清空日志失败: {str(e)}', 'error')
+        flash(_('清空日志失败: %(error)s') % {'error': str(e)}, 'error')
 
     return redirect(url_for('web.logs'))
 
@@ -412,7 +593,7 @@ def clear_logs():
 def settings():
     """系统设置"""
     if not current_user.is_admin():
-        flash('需要管理员权限', 'error')
+        flash(_('需要管理员权限'), 'error')
         return redirect(url_for('web.dashboard'))
 
     settings_list = Setting.query.order_by(Setting.category, Setting.key).all()
@@ -449,7 +630,7 @@ def settings():
 def save_settings():
     """保存系统设置"""
     if not current_user.is_admin():
-        flash('需要管理员权限', 'error')
+        flash(_('需要管理员权限'), 'error')
         return redirect(url_for('web.dashboard'))
 
     try:
@@ -479,10 +660,10 @@ def save_settings():
         db.session.add(log)
         db.session.commit()
 
-        flash('设置已保存', 'success')
+        flash(_('设置已保存'), 'success')
     except Exception as e:
         db.session.rollback()
-        flash(f'保存设置失败: {str(e)}', 'error')
+        flash(_('保存设置失败: %(error)s') % {'error': str(e)}, 'error')
 
     return redirect(url_for('web.settings'))
 
@@ -506,7 +687,7 @@ def oobe():
     # 如果系统已经初始化且不需要OOBE，重定向到登录页
     if not is_oobe_required():
         print("系统已初始化，重定向到登录页")
-        flash('系统已初始化，请登录', 'info')
+        flash(_('系统已初始化，请登录'), 'info')
         return redirect(url_for('auth.login'))
 
     if request.method == 'POST':
@@ -521,24 +702,24 @@ def oobe():
         errors = []
 
         if not admin_username:
-            errors.append('请填写管理员用户名')
+            errors.append(_('请填写管理员用户名'))
         elif len(admin_username) < 3:
-            errors.append('用户名至少3个字符')
+            errors.append(_('用户名至少3个字符'))
 
         if not admin_email:
-            errors.append('请填写管理员邮箱')
+            errors.append(_('请填写管理员邮箱'))
         elif '@' not in admin_email:
-            errors.append('邮箱格式不正确')
+            errors.append(_('邮箱格式不正确'))
 
         if not admin_password:
-            errors.append('请填写管理员密码')
+            errors.append(_('请填写管理员密码'))
         elif admin_password != admin_confirm:
-            errors.append('两次输入的密码不一致')
+            errors.append(_('两次输入的密码不一致'))
         elif len(admin_password) < 8:
-            errors.append('密码长度至少8位')
+            errors.append(_('密码长度至少8位'))
 
         if not site_title:
-            errors.append('请填写站点标题')
+            errors.append(_('请填写站点标题'))
 
         if errors:
             for error in errors:
@@ -670,7 +851,7 @@ def oobe():
 
             print("\n✅ 系统初始化成功完成！")
 
-            flash(f'系统初始化成功！管理员账户: {admin_username}，请使用该账户登录。', 'success')
+            flash(_('系统初始化成功！管理员账户: %(username)s，请使用该账户登录。') % {'username': admin_username}, 'success')
             return redirect(url_for('auth.login'))
 
         except Exception as e:
@@ -679,11 +860,11 @@ def oobe():
             traceback.print_exc()
 
             # 提供更详细的错误信息
-            error_msg = f'初始化失败: {str(e)}'
+            error_msg = _('初始化失败: %(error)s') % {'error': str(e)}
             if 'UNIQUE constraint failed' in str(e):
-                error_msg += ' (可能是用户名或邮箱已存在)'
+                error_msg += _(' (可能是用户名或邮箱已存在)')
             elif 'no such table' in str(e):
-                error_msg += ' (数据库表创建失败)'
+                error_msg += _(' (数据库表创建失败)')
 
             flash(error_msg, 'error')
             return render_template('oobe.html')
@@ -697,16 +878,16 @@ def import_whitelist():
     """从JSON文件导入白名单"""
     try:
         if 'json_file' not in request.files:
-            flash('请选择JSON文件', 'error')
+            flash(_('请选择JSON文件'), 'error')
             return redirect(url_for('web.whitelist'))
 
         file = request.files['json_file']
         if file.filename == '':
-            flash('请选择JSON文件', 'error')
+            flash(_('请选择JSON文件'), 'error')
             return redirect(url_for('web.whitelist'))
 
         if not file.filename.endswith('.json'):
-            flash('只支持JSON文件', 'error')
+            flash(_('只支持JSON文件'), 'error')
             return redirect(url_for('web.whitelist'))
 
         # 读取文件内容
@@ -714,13 +895,18 @@ def import_whitelist():
         data = json.loads(file_content)
 
         if not isinstance(data, list):
-            flash('JSON格式不正确，应该是一个数组', 'error')
+            flash(_('JSON格式不正确，应该是一个数组'), 'error')
             return redirect(url_for('web.whitelist'))
 
         # 获取导入选项
         skip_existing = request.form.get('skip_existing') == 'on'
         set_inactive = request.form.get('set_inactive') == 'on'
         description = request.form.get('description', '').strip()
+        server_id = request.form.get('server_id', '').strip()
+
+        if not server_id:
+            flash(_('请填写服务器ID'), 'error')
+            return redirect(url_for('web.whitelist'))
 
         imported_count = 0
         skipped_count = 0
@@ -741,10 +927,11 @@ def import_whitelist():
                     error_count += 1
                     continue
 
-                # 检查是否已存在
+                # 检查是否已存在（相同server_id下）
                 existing = WhitelistEntry.query.filter_by(
                     type=entry_type,
-                    value=value
+                    value=value,
+                    server_id=server_id
                 ).first()
 
                 if existing and skip_existing:
@@ -761,6 +948,7 @@ def import_whitelist():
                     entry = WhitelistEntry(
                         type=entry_type,
                         value=value,
+                        server_id=server_id,
                         description=description,
                         created_by=current_user.username,
                         is_active=not set_inactive
@@ -787,13 +975,13 @@ def import_whitelist():
         db.session.add(log)
         db.session.commit()
 
-        flash(f'导入完成: {imported_count}条成功导入，{skipped_count}条跳过，{error_count}条错误', 'success')
+        flash(_('导入完成: %(imported)s条成功导入，%(skipped)s条跳过，%(errors)s条错误') % {'imported': imported_count, 'skipped': skipped_count, 'errors': error_count}, 'success')
 
     except json.JSONDecodeError:
-        flash('JSON文件格式不正确', 'error')
+        flash(_('JSON文件格式不正确'), 'error')
     except Exception as e:
         db.session.rollback()
-        flash(f'导入失败: {str(e)}', 'error')
+        flash(_('导入失败: %(error)s') % {'error': str(e)}, 'error')
 
     return redirect(url_for('web.whitelist'))
 
@@ -806,9 +994,13 @@ def export_whitelist():
         # 获取查询参数
         active_only = request.args.get('active_only', 'true').lower() == 'true'
         include_expired = request.args.get('include_expired', 'false').lower() == 'true'
+        server_id = request.args.get('server_id', '').strip()
 
         # 构建查询
         query = WhitelistEntry.query
+
+        if server_id:
+            query = query.filter_by(server_id=server_id)
 
         if active_only:
             query = query.filter_by(is_active=True)
@@ -856,7 +1048,7 @@ def export_whitelist():
         return response
 
     except Exception as e:
-        flash(f'导出失败: {str(e)}', 'error')
+        flash(_('导出失败: %(error)s') % {'error': str(e)}, 'error')
         return redirect(url_for('web.whitelist'))
 
 
@@ -876,14 +1068,45 @@ def timezone_info():
 def timezone_settings():
     """时区设置页面"""
     if not current_user.is_admin():
-        flash('需要管理员权限', 'error')
+        flash(_('需要管理员权限'), 'error')
         return redirect(url_for('web.dashboard'))
 
-    from utils.timezone import get_common_timezones, get_timezone_info
+    from utils.timezone import get_common_timezones, get_timezone_info, get_app_timezone, now_utc
+    import pytz
+    from datetime import datetime as dt_module
+    from collections import OrderedDict
+
+    info = get_timezone_info()
+    now = now_utc()
+
+    # 将分组时区数据转为扁平字典供模板使用
+    common_groups = get_common_timezones()
+    timezones = OrderedDict()
+    now_dt = dt_module.now()
+    for group_name, tz_list in common_groups.items():
+        # 添加分组标签
+        timezones[f'__group__{group_name}'] = {
+            'display_name': f'── {group_name} ──',
+            'utc_offset': 999,  # 标记为分组标题
+            'is_group': True
+        }
+        for tz_id, tz_name in tz_list:
+            try:
+                t = pytz.timezone(tz_id)
+                offset = t.utcoffset(now_dt).total_seconds() / 3600 if t.utcoffset(now_dt) else 0
+            except Exception:
+                offset = 0
+            timezones[tz_id] = {
+                'display_name': tz_name,
+                'utc_offset': offset,
+                'is_group': False
+            }
 
     return render_template('settings_timezone.html',
-                           common_timezones=get_common_timezones(),
-                           timezone_info=get_timezone_info())
+                           timezones=timezones,
+                           current_timezone=info.get('timezone', 'UTC'),
+                           utc_offset=info.get('utc_offset', 8),
+                           now=now)
 
 
 @web_bp.route('/settings/timezone/save', methods=['POST'])
@@ -891,36 +1114,26 @@ def timezone_settings():
 def save_timezone():
     """保存时区设置"""
     if not current_user.is_admin():
-        return jsonify({
-            'success': False,
-            'message': '需要管理员权限'
-        }), 403
+        flash(_('需要管理员权限'), 'error')
+        return redirect(url_for('web.timezone_settings'))
+
+    timezone_str = request.form.get('timezone', '').strip()
+
+    if not timezone_str:
+        flash(_('请选择时区'), 'error')
+        return redirect(url_for('web.timezone_settings'))
+
+    # 验证时区有效性
+    import pytz
+    try:
+        pytz.timezone(timezone_str)
+    except pytz.UnknownTimeZoneError:
+        flash(_('无效的时区'), 'error')
+        return redirect(url_for('web.timezone_settings'))
 
     try:
-        timezone_str = request.form.get('timezone', '').strip()
-
-        if not timezone_str:
-            return jsonify({
-                'success': False,
-                'message': '请选择时区'
-            }), 400
-
-        # 验证时区有效性
-        import pytz
-        try:
-            pytz.timezone(timezone_str)
-        except pytz.UnknownTimeZoneError:
-            return jsonify({
-                'success': False,
-                'message': '无效的时区'
-            }), 400
-
         # 保存到数据库
-        from models.setting import Setting
         Setting.set_value('timezone', timezone_str, '系统时区设置', 'system')
-
-        # 更新应用配置（需要重启应用才能完全生效）
-        # 这里我们先保存到数据库，应用会在下次请求时加载
 
         # 记录操作日志
         log = Log(
@@ -929,23 +1142,18 @@ def save_timezone():
             source='web',
             ip_address=request.remote_addr,
             user_id=current_user.id,
-            details=f'old_timezone: {config.get("TIMEZONE")}, new_timezone: {timezone_str}'
+            details=f'old_timezone: {current_app.config.get("TIMEZONE", "UTC")}, new_timezone: {timezone_str}'
         )
         db.session.add(log)
         db.session.commit()
 
-        return jsonify({
-            'success': True,
-            'message': '时区设置已保存',
-            'timezone': timezone_str
-        })
+        flash(_('时区设置已保存为: %(timezone)s') % {'timezone': timezone_str}, 'success')
 
     except Exception as e:
         db.session.rollback()
-        return jsonify({
-            'success': False,
-            'message': f'保存失败: {str(e)}'
-        }), 500
+        flash(_('保存失败: %(error)s') % {'error': str(e)}, 'error')
+
+    return redirect(url_for('web.timezone_settings'))
 
 
 @web_bp.route('/settings/timezone/test', methods=['POST'])
@@ -1079,7 +1287,7 @@ def get_all_timezones():
 def token_management():
     """Token管理页面"""
     if not current_user.is_admin():
-        flash('需要管理员权限', 'error')
+        flash(_('需要管理员权限'), 'error')
         return redirect(url_for('web.dashboard'))
 
     page = request.args.get('page', 1, type=int)
@@ -1124,7 +1332,7 @@ def token_management():
 def create_web_token():
     """通过Web界面创建Token"""
     if not current_user.is_admin():
-        flash('需要管理员权限', 'error')
+        flash(_('需要管理员权限'), 'error')
         return redirect(url_for('web.token_management'))
 
     name = request.form.get('name', '').strip()
@@ -1143,11 +1351,11 @@ def create_web_token():
             if days_valid <= 0:
                 days_valid = None
         except ValueError:
-            flash('有效期格式错误', 'error')
+            flash(_('有效期格式错误'), 'error')
             return redirect(url_for('web.token_management'))
 
     if not name:
-        flash('请输入Token名称', 'error')
+        flash(_('请输入Token名称'), 'error')
         return redirect(url_for('web.token_management'))
 
     try:
@@ -1182,7 +1390,7 @@ def create_web_token():
             'name': token.name,
             'token': token.token,
             'expires_at': token.expires_at.isoformat() if token.expires_at else None,
-            'expires_at_formatted': format_datetime(token.expires_at) if token.expires_at else '永不过期'
+            'expires_at_formatted': format_datetime(token.expires_at) if token.expires_at else _('永不过期')
         }
 
         # 存储在session中以便在下一页显示
@@ -1203,7 +1411,7 @@ def create_web_token():
 
     except Exception as e:
         db.session.rollback()
-        flash(f'创建Token失败: {str(e)}', 'error')
+        flash(_('创建Token失败: %(error)s') % {'error': str(e)}, 'error')
 
     return redirect(url_for('web.token_management'))
 
@@ -1213,14 +1421,14 @@ def create_web_token():
 def toggle_token(token_id):
     """切换Token状态"""
     if not current_user.is_admin():
-        flash('需要管理员权限', 'error')
+        flash(_('需要管理员权限'), 'error')
         return redirect(url_for('web.token_management'))
 
     token = Token.query.get_or_404(token_id)
 
     # 检查权限：只有Token创建者或管理员可以操作
     if token.user_id != current_user.id and not current_user.is_admin():
-        flash('没有权限操作此Token', 'error')
+        flash(_('没有权限操作此Token'), 'error')
         return redirect(url_for('web.token_management'))
 
     old_status = token.is_active
@@ -1239,8 +1447,8 @@ def toggle_token(token_id):
     db.session.add(log)
     db.session.commit()
 
-    status = '启用' if token.is_active else '禁用'
-    flash(f'Token已{status}', 'success')
+    status = _('启用') if token.is_active else _('禁用')
+    flash(_('Token已%(status)s') % {'status': status}, 'success')
     return redirect(url_for('web.token_management'))
 
 
@@ -1249,14 +1457,14 @@ def toggle_token(token_id):
 def delete_token(token_id):
     """删除Token"""
     if not current_user.is_admin():
-        flash('需要管理员权限', 'error')
+        flash(_('需要管理员权限'), 'error')
         return redirect(url_for('web.token_management'))
 
     token = Token.query.get_or_404(token_id)
 
     # 检查权限：只有Token创建者或管理员可以操作
     if token.user_id != current_user.id and not current_user.is_admin():
-        flash('没有权限操作此Token', 'error')
+        flash(_('没有权限操作此Token'), 'error')
         return redirect(url_for('web.token_management'))
 
     token_name = token.name
@@ -1275,8 +1483,18 @@ def delete_token(token_id):
     db.session.delete(token)
     db.session.commit()
 
-    flash(f'Token [{token_name}] 已删除', 'success')
+    flash(_('Token [%(name)s] 已删除') % {'name': token_name}, 'success')
     return redirect(url_for('web.token_management'))
+
+
+@web_bp.route('/set-language/<lang>')
+def switch_language(lang):
+    """切换语言"""
+    if lang in ['zh_CN', 'en']:
+        session['lang'] = lang
+    # 重定向回来源页面
+    next_page = request.args.get('next') or request.referrer or url_for('web.dashboard')
+    return redirect(next_page)
 
 
 @web_bp.route('/tokens/<int:token_id>/refresh', methods=['POST'])
@@ -1284,14 +1502,14 @@ def delete_token(token_id):
 def refresh_token(token_id):
     """刷新Token（生成新值）"""
     if not current_user.is_admin():
-        flash('需要管理员权限', 'error')
+        flash(_('需要管理员权限'), 'error')
         return redirect(url_for('web.token_management'))
 
     token = Token.query.get_or_404(token_id)
 
     # 检查权限：只有Token创建者或管理员可以操作
     if token.user_id != current_user.id and not current_user.is_admin():
-        flash('没有权限操作此Token', 'error')
+        flash(_('没有权限操作此Token'), 'error')
         return redirect(url_for('web.token_management'))
 
     try:
@@ -1329,16 +1547,239 @@ def refresh_token(token_id):
             'name': token.name,
             'token': token.token,
             'expires_at': token.expires_at.isoformat() if token.expires_at else None,
-            'expires_at_formatted': format_datetime(token.expires_at) if token.expires_at else '永不过期'
+            'expires_at_formatted': format_datetime(token.expires_at) if token.expires_at else _('永不过期')
         }
 
         session['new_token_created'] = True
         session['new_token_data'] = new_token_data
 
-        flash('Token已刷新，请保存新Token', 'success')
+        flash(_('Token已刷新，请保存新Token'), 'success')
 
     except Exception as e:
         db.session.rollback()
-        flash(f'刷新Token失败: {str(e)}', 'error')
+        flash(_('刷新Token失败: %(error)s') % {'error': str(e)}, 'error')
 
     return redirect(url_for('web.token_management'))
+
+
+@web_bp.route('/analytics')
+@login_required
+def user_analytics():
+    """用户游玩数据分析"""
+    from models.session import LoginSession
+    from collections import defaultdict
+    import requests
+
+    view = request.args.get('view', '').strip()
+    player_name = request.args.get('player_name', '').strip()
+    player_uuid = request.args.get('player_uuid', '').strip()
+    server_id = request.args.get('server_id', '').strip()
+
+    # 总览数据
+    overview = None
+    overview_days = request.args.get('trend_days', 7, type=int)
+    overview_servers = request.args.getlist('os')  # overview server filter
+
+    if view == 'overview' or (not player_name):
+        query = LoginSession.query
+        all_sessions = query.all()
+
+        # 时间范围筛选
+        cutoff_time = datetime.utcnow() - timedelta(days=overview_days)
+        time_filtered = [s for s in all_sessions if s.login_time and s.login_time >= cutoff_time]
+
+        # 服务器筛选
+        all_overview_servers = sorted(set(s.server_id or 'default' for s in all_sessions))
+        if overview_servers:
+            filtered = [s for s in time_filtered if (s.server_id or 'default') in overview_servers]
+        else:
+            filtered = time_filtered
+
+        # 全服总在线时间
+        total_online = sum(s.duration or 0 for s in filtered)
+        # 最大单次在线时长
+        max_single = max((s.duration or 0 for s in filtered), default=0)
+        max_single_session = max(filtered, key=lambda s: s.duration or 0) if filtered else None
+
+        # 玩家汇总统计
+        player_stats = defaultdict(lambda: {'total_duration': 0, 'login_count': 0, 'max_single': 0})
+        for s in filtered:
+            name = s.player_name or 'Unknown'
+            player_stats[name]['total_duration'] += s.duration or 0
+            player_stats[name]['login_count'] += 1
+            if (s.duration or 0) > player_stats[name]['max_single']:
+                player_stats[name]['max_single'] = s.duration or 0
+
+        # 最大单玩家在线时长
+        if player_stats:
+            top_duration_player = max(player_stats.items(), key=lambda x: x[1]['total_duration'])
+            top_login_player = max(player_stats.items(), key=lambda x: x[1]['login_count'])
+        else:
+            top_duration_player = (None, {'total_duration': 0, 'login_count': 0, 'max_single': 0})
+            top_login_player = (None, {'total_duration': 0, 'login_count': 0, 'max_single': 0})
+
+        # 最大同时在线玩家数 (sweep line)
+        events = []
+        for s in filtered:
+            if s.login_time:
+                events.append((s.login_time, 1))
+                lt = s.logout_time or datetime.utcnow()
+                events.append((lt, -1))
+        events.sort(key=lambda x: x[0])
+        concurrent = 0
+        max_concurrent = 0
+        for _, delta in events:
+            concurrent += delta
+            if concurrent > max_concurrent:
+                max_concurrent = concurrent
+
+        # 玩家在线排行 (前15名)
+        player_ranking = sorted(player_stats.items(), key=lambda x: x[1]['total_duration'], reverse=True)[:15]
+
+        overview = {
+            'total_online': total_online,
+            'max_concurrent': max_concurrent,
+            'max_single': max_single,
+            'max_single_player': max_single_session.player_name if max_single_session else '-',
+            'max_single_server': max_single_session.server_id if max_single_session else '-',
+            'max_single_duration': max_single_session.duration if max_single_session else 0,
+            'top_duration_player': top_duration_player[0],
+            'top_duration_value': top_duration_player[1]['total_duration'],
+            'top_login_player': top_login_player[0],
+            'top_login_value': top_login_player[1]['login_count'],
+            'total_players': len(player_stats),
+            'player_ranking': player_ranking,
+            'all_overview_servers': all_overview_servers,
+            'overview_servers': overview_servers,
+        }
+
+    # 获取所有出现过登入记录的玩家
+    all_players = db.session.query(
+        Log.player_name, Log.player_uuid
+    ).filter(
+        Log.level == 'login',
+        Log.player_name.isnot(None)
+    ).distinct().order_by(Log.player_name).all()
+
+    # 区分白名单用户和游客
+    whitelist_players = []
+    guest_players = []
+    for name, uuid in all_players:
+        if is_whitelist_user(player_name=name, player_uuid=uuid):
+            whitelist_players.append({'name': name, 'uuid': uuid})
+        else:
+            guest_players.append({'name': name, 'uuid': uuid})
+
+    stats = None
+    sessions = []
+    gantt_data = []
+    ip_geo = {}
+
+    if player_name:
+        stats = LoginSession.get_player_stats(player_name=player_name, player_uuid=player_uuid)
+        all_player_sessions = LoginSession.get_player_sessions(
+            player_name=player_name,
+            player_uuid=player_uuid,
+            server_id=server_id if server_id else None,
+            limit=500
+        )
+        # 时间范围筛选
+        cutoff_time = datetime.utcnow() - timedelta(days=overview_days)
+        sessions = [s for s in all_player_sessions if s.login_time and s.login_time >= cutoff_time]
+
+        # 甘特图数据（最近50条，反转顺序使最新在上）
+        from utils.timezone import utc_to_local
+        gantt_data = []
+        for s in reversed(sessions[:50]):
+            if s.login_time:
+                login_local = utc_to_local(s.login_time)
+                logout_local = utc_to_local(s.logout_time) if s.logout_time else utc_to_local(datetime.utcnow())
+                gantt_data.append({
+                    'start': login_local.isoformat(),
+                    'end': logout_local.isoformat(),
+                    'duration': s.duration,
+                    'server': s.server_id,
+                    'ip': s.login_ip or '',
+                })
+
+        if stats and stats.get('ip_ranking'):
+            for ip, count in stats['ip_ranking'][:5]:
+                if ip and ip != 'unknown' and ip not in ip_geo:
+                    try:
+                        resp = requests.get('https://uapis.cn/api/v1/network/ipinfo', params={'ip': ip}, timeout=3)
+                        if resp.status_code == 200:
+                            geo_data = resp.json()
+                            ip_geo[ip] = {
+                                'region': geo_data.get('region', 'Unknown'),
+                                'isp': geo_data.get('isp', ''),
+                                'lat': geo_data.get('latitude'),
+                                'lng': geo_data.get('longitude'),
+                            }
+                        else:
+                            ip_geo[ip] = {'region': 'N/A', 'isp': '', 'lat': None, 'lng': None}
+                    except Exception:
+                        ip_geo[ip] = {'region': 'N/A', 'isp': '', 'lat': None, 'lng': None}
+
+    # 登陆趋势（共用 overview_days，如选定玩家则只显示该玩家）
+    trend_days = overview_days
+    trend_type = request.args.get('trend_type', 'all')
+    trend_server_id = request.args.get('trend_server_id', '').strip()
+
+    today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    login_trend_data = defaultdict(int)
+    for i in range(trend_days - 1, -1, -1):
+        day_start = today - timedelta(days=i)
+        day_end = day_start + timedelta(days=1)
+        query = Log.query.filter(
+            Log.level == 'login',
+            Log.created_at >= day_start,
+            Log.created_at < day_end
+        )
+        if trend_server_id:
+            query = query.filter_by(server_id=trend_server_id)
+        # 如果选了具体玩家，只统计该玩家
+        if player_name:
+            query = query.filter_by(player_name=player_name)
+            day_count = query.count()
+            login_trend_data[day_start.strftime('%m-%d')] = day_count
+        elif trend_type == 'whitelist':
+            day_logs = query.all()
+            count = 0
+            for log_entry in day_logs:
+                if is_whitelist_user(player_name=log_entry.player_name, player_uuid=log_entry.player_uuid):
+                    count += 1
+            login_trend_data[day_start.strftime('%m-%d')] = count
+        elif trend_type == 'guest':
+            day_logs = query.all()
+            count = 0
+            for log_entry in day_logs:
+                if not is_whitelist_user(player_name=log_entry.player_name, player_uuid=log_entry.player_uuid):
+                    count += 1
+            login_trend_data[day_start.strftime('%m-%d')] = count
+        else:
+            login_trend_data[day_start.strftime('%m-%d')] = query.count()
+
+    is_player_view = bool(player_name)
+
+    all_server_ids = [row[0] for row in db.session.query(Log.server_id).filter(
+        Log.server_id.isnot(None), Log.level == 'login'
+    ).distinct().order_by(Log.server_id).all()]
+
+    return render_template('analytics.html',
+                           view=view,
+                           overview=overview,
+                           all_players=all_players,
+                           whitelist_players=whitelist_players,
+                           guest_players=guest_players,
+                           player_name=player_name,
+                           stats=stats,
+                           sessions=sessions,
+                           gantt_data=gantt_data,
+                           ip_geo=ip_geo,
+                           login_trend=login_trend_data,
+                           trend_type=trend_type,
+                           trend_days=trend_days,
+                           trend_server_id=trend_server_id,
+                           all_server_ids=all_server_ids,
+                           server_id=server_id,
+                           is_player_view=is_player_view)

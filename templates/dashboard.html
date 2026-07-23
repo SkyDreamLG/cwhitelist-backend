@@ -1,138 +1,249 @@
 {% extends "layout.html" %}
 
-{% block title %}仪表板{% endblock %}
+{% block title %}{{ _('仪表板') }}{% endblock %}
+{% block page_title %}{{ _('仪表盘') }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        border: none;
+        border-radius: 12px;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    .stat-card .stat-icon {
+        width: 56px; height: 56px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+    }
+    .stat-card .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    .stat-card .stat-label {
+        font-size: 0.85rem;
+        color: #64748b;
+    }
+    .stat-sub {
+        font-size: 0.8rem;
+    }
+    .trend-up { color: #10b981; }
+    .trend-down { color: #ef4444; }
+    .chart-container {
+        position: relative;
+        height: 280px;
+        width: 100%;
+    }
+    .server-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-12">
-        <h1 class="mb-4">
-            <i class="bi bi-speedometer2 me-2"></i>仪表板
-        </h1>
-    </div>
-</div>
 
-<div class="row">
-    <!-- 统计卡片 -->
-    <div class="col-md-3 mb-4">
-        <div class="card border-primary">
+<!-- ===== 顶部 KPI 卡片 ===== -->
+<div class="row g-3 mb-4">
+    <!-- 白名单总数（含子项） -->
+    <div class="col-xl-3 col-md-6">
+        <div class="card stat-card shadow-sm border-start border-4 border-primary h-100">
             <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex justify-content-between align-items-start mb-2">
                     <div>
-                        <h5 class="card-title text-primary">
-                            <i class="bi bi-list-check me-2"></i>白名单
-                        </h5>
-                        <h2 class="mb-0">{{ total_entries }}</h2>
-                        <p class="text-muted">总条目数</p>
+                        <div class="stat-label mb-1"><i class="bi bi-list-check me-1"></i>{{ _('白名单') }}</div>
+                        <div class="stat-value text-primary">{{ total_entries }}</div>
+                        <div class="stat-label">{{ _('总条目数') }}</div>
                     </div>
-                    <i class="bi bi-list-check display-4 text-primary opacity-25"></i>
+                    <div class="stat-icon bg-primary bg-opacity-10 text-primary">
+                        <i class="bi bi-shield-check"></i>
+                    </div>
                 </div>
-                <a href="{{ url_for('web.whitelist') }}" class="btn btn-outline-primary btn-sm w-100">
-                    <i class="bi bi-arrow-right me-1"></i>管理白名单
-                </a>
+                <div class="d-flex gap-3 mt-3 pt-3 border-top">
+                    <div>
+                        <span class="text-success fw-bold">{{ active_entries }}</span>
+                        <span class="stat-sub text-muted"> {{ _('活跃') }}</span>
+                    </div>
+                    <div>
+                        <span class="text-secondary fw-bold">{{ inactive_entries }}</span>
+                        <span class="stat-sub text-muted"> {{ _('禁用') }}</span>
+                    </div>
+                    {% if expired_count > 0 %}
+                    <div>
+                        <span class="text-danger fw-bold">{{ expired_count }}</span>
+                        <span class="stat-sub text-muted"> {{ _('已过期') }}</span>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </div>
 
-    <div class="col-md-3 mb-4">
-        <div class="card border-success">
+    <!-- 服务器数量 -->
+    <div class="col-xl-3 col-md-6">
+        <div class="card stat-card shadow-sm border-start border-4 border-info h-100">
             <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
+                <div class="d-flex justify-content-between align-items-start mb-2">
                     <div>
-                        <h5 class="card-title text-success">
-                            <i class="bi bi-check-circle me-2"></i>活跃条目
-                        </h5>
-                        <h2 class="mb-0">{{ active_entries }}</h2>
-                        <p class="text-muted">活跃条目数</p>
+                        <div class="stat-label mb-1"><i class="bi bi-server me-1"></i>{{ _('服务器') }}</div>
+                        <div class="stat-value text-info">{{ total_servers }}</div>
+                        <div class="stat-label">{{ _('活跃服务器数') }}</div>
                     </div>
-                    <i class="bi bi-check-circle display-4 text-success opacity-25"></i>
-                </div>
-                <a href="{{ url_for('web.whitelist') }}?active_only=true" class="btn btn-outline-success btn-sm w-100">
-                    <i class="bi bi-eye me-1"></i>查看活跃
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-3 mb-4">
-        <div class="card border-info">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h5 class="card-title text-info">
-                            <i class="bi bi-journal-text me-2"></i>系统日志
-                        </h5>
-                        {% if log_stats %}
-                        <h2 class="mb-0">{{ log_stats.total }}</h2>
-                        <p class="text-muted">日志总数</p>
-                        {% else %}
-                        <h2 class="mb-0">0</h2>
-                        <p class="text-muted">日志总数</p>
-                        {% endif %}
+                    <div class="stat-icon bg-info bg-opacity-10 text-info">
+                        <i class="bi bi-hdd-stack"></i>
                     </div>
-                    <i class="bi bi-journal-text display-4 text-info opacity-25"></i>
                 </div>
-                <a href="{{ url_for('web.logs') }}" class="btn btn-outline-info btn-sm w-100">
-                    <i class="bi bi-arrow-right me-1"></i>查看日志
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <div class="col-md-3 mb-4">
-        <div class="card border-warning">
-            <div class="card-body">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <h5 class="card-title text-warning">
-                            <i class="bi bi-person-check me-2"></i>用户
-                        </h5>
-                        {% if user_count %}
-                        <h2 class="mb-0">{{ user_count }}</h2>
-                        <p class="text-muted">用户总数</p>
-                        {% else %}
-                        <h2 class="mb-0">1</h2>
-                        <p class="text-muted">用户总数</p>
-                        {% endif %}
-                    </div>
-                    <i class="bi bi-person-check display-4 text-warning opacity-25"></i>
+                {% if server_entry_counts %}
+                <div class="d-flex flex-wrap gap-1 mt-3 pt-3 border-top">
+                    {% for sid, count in server_entry_counts[:6] %}
+                    <span class="server-badge bg-info bg-opacity-10 text-info">
+                        {{ sid }} <strong>{{ count }}</strong>
+                    </span>
+                    {% endfor %}
+                    {% if server_entry_counts|length > 6 %}
+                    <span class="stat-sub text-muted">+{{ server_entry_counts|length - 6 }} {{ _('更多') }}</span>
+                    {% endif %}
                 </div>
-                {% if current_user.is_admin() %}
-                <a href="{{ url_for('web.settings') }}" class="btn btn-outline-warning btn-sm w-100">
-                    <i class="bi bi-gear me-1"></i>系统设置
-                </a>
-                {% else %}
-                <a href="{{ url_for('auth.profile') }}" class="btn btn-outline-warning btn-sm w-100">
-                    <i class="bi bi-person me-1"></i>个人资料
-                </a>
                 {% endif %}
             </div>
         </div>
     </div>
+
+    <!-- 登陆次数 -->
+    <div class="col-xl-3 col-md-6">
+        <div class="card stat-card shadow-sm border-start border-4 border-success h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <div class="stat-label mb-1"><i class="bi bi-door-open me-1"></i>{{ _('登陆日志') }}</div>
+                        <div class="stat-value text-success">{{ total_logins }}</div>
+                        <div class="stat-label">{{ _('总登陆次数') }}</div>
+                    </div>
+                    <div class="stat-icon bg-success bg-opacity-10 text-success">
+                        <i class="bi bi-people"></i>
+                    </div>
+                </div>
+                <div class="d-flex gap-3 mt-3 pt-3 border-top">
+                    <div>
+                        <span class="stat-sub text-muted">{{ _('今日') }}</span>
+                        <span class="fw-bold text-success"> {{ today_logins }}</span>
+                    </div>
+                    <div>
+                        <span class="stat-sub text-muted">{{ _('允许') }}</span>
+                        <span class="fw-bold text-primary"> {{ allowed_logins }}</span>
+                    </div>
+                    <div>
+                        <span class="stat-sub text-muted">{{ _('拒绝') }}</span>
+                        <span class="fw-bold text-danger"> {{ denied_logins }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 用户 -->
+    <div class="col-xl-3 col-md-6">
+        <div class="card stat-card shadow-sm border-start border-4 border-warning h-100">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start mb-2">
+                    <div>
+                        <div class="stat-label mb-1"><i class="bi bi-person-check me-1"></i>{{ _('用户') }}</div>
+                        <div class="stat-value text-warning">{{ user_count }}</div>
+                        <div class="stat-label">{{ _('系统用户数') }}</div>
+                    </div>
+                    <div class="stat-icon bg-warning bg-opacity-10 text-warning">
+                        <i class="bi bi-person-badge"></i>
+                    </div>
+                </div>
+                <div class="d-flex gap-3 mt-3 pt-3 border-top">
+                    <div>
+                        <span class="stat-sub text-muted">{{ _('日志总数') }}</span>
+                        <span class="fw-bold"> {{ log_stats.total }}</span>
+                    </div>
+                    <div>
+                        <span class="text-info fw-bold">{{ log_stats.info }}</span>
+                        <span class="stat-sub text-muted"> {{ _('信息') }}</span>
+                    </div>
+                    <div>
+                        <span class="text-danger fw-bold">{{ log_stats.error }}</span>
+                        <span class="stat-sub text-muted"> {{ _('错误') }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
-<div class="row">
+<!-- ===== 中排：趋势图 + 日志分布 ===== -->
+<div class="row g-3 mb-4">
+    <!-- 登陆趋势曲线 -->
+    <div class="col-xl-8">
+        <div class="card stat-card shadow-sm h-100">
+            <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-graph-up me-2"></i>{{ _('登陆趋势（近7天）') }}</h6>
+                <small class="text-muted">{{ _('总登陆') }}: {{ total_logins }}</small>
+            </div>
+            <div class="card-body">
+                <div class="chart-container">
+                    <canvas id="loginTrendChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 日志分布 -->
+    <div class="col-xl-4">
+        <div class="card stat-card shadow-sm h-100">
+            <div class="card-header bg-transparent border-bottom">
+                <h6 class="mb-0"><i class="bi bi-pie-chart me-2"></i>{{ _('日志级别分布') }}</h6>
+            </div>
+            <div class="card-body">
+                <div class="chart-container" style="height:240px;">
+                    <canvas id="logLevelChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== 底排：操作 + 最近添加 ===== -->
+<div class="row g-3">
     <!-- 快速操作 -->
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">
-                    <i class="bi bi-lightning-charge me-2"></i>快速操作
-                </h5>
+    <div class="col-xl-4">
+        <div class="card stat-card shadow-sm h-100">
+            <div class="card-header bg-transparent border-bottom">
+                <h6 class="mb-0"><i class="bi bi-lightning-charge me-2"></i>{{ _('快速操作') }}</h6>
             </div>
             <div class="card-body">
                 <div class="d-grid gap-2">
-                    <a href="{{ url_for('web.whitelist') }}" class="btn btn-primary">
-                        <i class="bi bi-plus-circle me-2"></i>添加白名单条目
+                    <a href="{{ url_for('web.whitelist') }}" class="btn btn-outline-primary">
+                        <i class="bi bi-plus-circle me-2"></i>{{ _('添加白名单条目') }}
                     </a>
-                    <a href="{{ url_for('web.logs') }}" class="btn btn-info">
-                        <i class="bi bi-journal-text me-2"></i>查看系统日志
+                    <a href="{{ url_for('web.logs') }}" class="btn btn-outline-info">
+                        <i class="bi bi-journal-text me-2"></i>{{ _('查看系统日志') }}
                     </a>
-                    <a href="{{ url_for('web.api_docs') }}" class="btn btn-success">
-                        <i class="bi bi-book me-2"></i>API文档
+                    <a href="{{ url_for('web.login_logs') }}" class="btn btn-outline-success">
+                        <i class="bi bi-door-open me-2"></i>{{ _('查看登陆日志') }}
+                    </a>
+                    <a href="{{ url_for('web.api_docs') }}" class="btn btn-outline-secondary">
+                        <i class="bi bi-book me-2"></i>{{ _('API文档') }}
                     </a>
                     {% if current_user.is_admin() %}
-                    <a href="{{ url_for('web.settings') }}" class="btn btn-warning">
-                        <i class="bi bi-gear me-2"></i>系统设置
+                    <a href="{{ url_for('web.settings') }}" class="btn btn-outline-warning">
+                        <i class="bi bi-gear me-2"></i>{{ _('系统设置') }}
+                    </a>
+                    <a href="{{ url_for('web.token_management') }}" class="btn btn-outline-dark">
+                        <i class="bi bi-key me-2"></i>{{ _('Token管理') }}
                     </a>
                     {% endif %}
                 </div>
@@ -140,79 +251,200 @@
         </div>
     </div>
 
-    <!-- 最近添加的白名单 -->
-    <div class="col-md-6 mb-4">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">
-                    <i class="bi bi-clock-history me-2"></i>最近添加的白名单
-                </h5>
+    <!-- 最近添加 -->
+    <div class="col-xl-8">
+        <div class="card stat-card shadow-sm h-100">
+            <div class="card-header bg-transparent border-bottom d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>{{ _('最近添加的白名单') }}</h6>
+                <a href="{{ url_for('web.whitelist') }}" class="btn btn-sm btn-outline-primary">{{ _('查看全部') }} <i class="bi bi-arrow-right ms-1"></i></a>
             </div>
-            <div class="card-body">
+            <div class="card-body p-0">
                 {% if recent_entries %}
-                <div class="list-group list-group-flush">
-                    {% for entry in recent_entries %}
-                    <div class="list-group-item">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <span class="badge bg-info me-2">{{ entry.type }}</span>
-                                <strong>{{ entry.value }}</strong>
-                                {% if entry.description %}
-                                <br><small class="text-muted">{{ entry.description }}</small>
-                                {% endif %}
-                            </div>
-                            <div class="text-end">
-                                <small class="text-muted">{{ format_datetime(entry.created_at, '%m-%d %H:%M') }}</small><br>
-                                <span class="badge bg-{{ 'success' if entry.is_active else 'secondary' }}">
-                                    {{ '活跃' if entry.is_active else '禁用' }}
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-3">{{ _('类型') }}</th>
+                                <th>{{ _('值') }}</th>
+                                <th>{{ _('服务器') }}</th>
+                                <th>{{ _('创建者') }}</th>
+                                <th>{{ _('时间') }}</th>
+                                <th class="text-end pe-3">{{ _('状态') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for entry in recent_entries %}
+                            <tr>
+                                <td class="ps-3"><span class="badge bg-info">{{ entry.type }}</span></td>
+                                <td><code>{{ entry.value }}</code></td>
+                                <td><span class="badge bg-secondary">{{ entry.server_id or '-' }}</span></td>
+                                <td><small>{{ entry.created_by }}</small></td>
+                                <td><small class="text-muted">{{ format_datetime(entry.created_at, '%m-%d %H:%M') if entry.created_at else '-' }}</small></td>
+                                <td class="text-end pe-3">
+                                    <span class="badge bg-{{ 'success' if entry.is_active else 'secondary' }}">
+                                        {{ _('活跃') if entry.is_active else _('禁用') }}
+                                    </span>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
                 {% else %}
-                <div class="text-center py-4">
+                <div class="text-center py-5">
                     <i class="bi bi-inbox display-4 text-muted mb-3"></i>
-                    <p class="text-muted">暂无白名单条目</p>
-                    <a href="{{ url_for('web.whitelist') }}" class="btn btn-primary btn-sm">
-                        添加第一个条目
-                    </a>
+                    <p class="text-muted">{{ _('暂无白名单条目') }}</p>
+                    <a href="{{ url_for('web.whitelist') }}" class="btn btn-primary btn-sm">{{ _('添加第一个条目') }}</a>
                 </div>
                 {% endif %}
-            </div>
-            <div class="card-footer">
-                <a href="{{ url_for('web.whitelist') }}" class="btn btn-outline-primary btn-sm w-100">
-                    查看所有白名单 <i class="bi bi-arrow-right ms-1"></i>
-                </a>
             </div>
         </div>
     </div>
 </div>
 
-<div class="row">
-    <!-- 时区信息 -->
-    <div class="col-md-12">
-        <div class="card">
-            <div class="card-header">
-                <h5 class="card-title mb-0">
-                    <i class="bi bi-clock me-2"></i>系统时间信息
-                </h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6">
-                        <p class="mb-1"><strong>系统时区：</strong>{{ timezone_info.timezone }}</p>
-                        <p class="mb-1"><strong>UTC偏移：</strong>UTC{{ '+' if timezone_info.utc_offset >= 0 else '' }}{{ '%.1f'|format(timezone_info.utc_offset) }}小时</p>
-                        <p class="mb-0"><strong>是否夏令时：</strong>{{ '是' if timezone_info.is_dst else '否' }}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <p class="mb-1"><strong>当前本地时间：</strong>{{ timezone_info.current_local }}</p>
-                        <p class="mb-0"><strong>当前UTC时间：</strong>{{ timezone_info.current_utc }}</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// 登陆趋势曲线
+(function() {
+    const ctx = document.getElementById('loginTrendChart');
+    if (!ctx) return;
+    const trendData = {{ login_trend | tojson }};
+    const labels = Object.keys(trendData);
+    const values = Object.values(trendData);
+
+    const trendWl = {{ login_trend_wl | tojson }};
+    const trendGuest = {{ login_trend_guest | tojson }};
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: '{{ _('白名单用户') }}',
+                    data: Object.values(trendWl),
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.06)',
+                    borderWidth: 2.5,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#10b981',
+                },
+                {
+                    label: '{{ _('游客') }}',
+                    data: Object.values(trendGuest),
+                    borderColor: '#f59e0b',
+                    backgroundColor: 'rgba(245, 158, 11, 0.04)',
+                    borderWidth: 2,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 3,
+                    pointBackgroundColor: '#f59e0b',
+                    borderDash: [5, 5],
+                },
+                {
+                    label: '{{ _('登陆次数') }}',
+                    data: values,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'transparent',
+                    borderWidth: 1.5,
+                    fill: false,
+                    tension: 0.4,
+                    pointRadius: 2,
+                    pointBackgroundColor: '#3b82f6',
+                    borderDash: [2, 2],
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        usePointStyle: true,
+                        pointStyleWidth: 8,
+                        padding: 16,
+                        font: { size: 11 },
+                    }
+                },
+                tooltip: {
+                    backgroundColor: '#1e293b',
+                    titleFont: { size: 13 },
+                    bodyFont: { size: 12 },
+                    padding: 12,
+                    cornerRadius: 8,
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: { font: { size: 11 }, color: '#94a3b8' }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f1f5f9' },
+                    ticks: {
+                        font: { size: 11 },
+                        color: '#94a3b8',
+                        stepSize: 1,
+                        callback: function(v) { return v % 1 === 0 ? v : ''; }
+                    }
+                }
+            }
+        }
+    });
+})();
+
+// 日志级别分布饼图
+(function() {
+    const ctx = document.getElementById('logLevelChart');
+    if (!ctx) return;
+    const stats = {{ log_stats | tojson }};
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['{{ _('信息') }}', '{{ _('警告') }}', '{{ _('错误') }}', '{{ _('登陆') }}'],
+            datasets: [{
+                data: [stats.info || 0, stats.warning || 0, stats.error || 0, stats.login || 0],
+                backgroundColor: ['#3b82f6', '#f59e0b', '#ef4444', '#10b981'],
+                borderColor: '#fff',
+                borderWidth: 2,
+                hoverBorderWidth: 3,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: {
+                        padding: 16,
+                        usePointStyle: true,
+                        pointStyleWidth: 8,
+                        font: { size: 12 },
+                    }
+                },
+                tooltip: {
+                    backgroundColor: '#1e293b',
+                    padding: 12,
+                    cornerRadius: 8,
+                }
+            },
+            cutout: '65%',
+        }
+    });
+})();
+</script>
 {% endblock %}

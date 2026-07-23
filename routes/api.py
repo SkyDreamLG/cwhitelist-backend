@@ -7,6 +7,8 @@ from models.database import db
 from models.token import Token
 from models.whitelist import WhitelistEntry
 from models.log import Log
+from models.session import LoginSession
+from models.server_status import ServerStatus
 from utils.auth import require_api_auth  # 导入装饰器
 
 api_bp = Blueprint('api', __name__)
@@ -14,14 +16,35 @@ api_bp = Blueprint('api', __name__)
 
 @api_bp.route('/health', methods=['GET'])
 def health():
-    """健康检查接口 - 不需要Token验证"""
+    """健康检查接口 - 不需要Token验证，server_id必填"""
+    server_id = request.args.get('server_id', '').strip()
+    if not server_id:
+        return jsonify({
+            'success': False,
+            'message': 'server_id is required'
+        }), 400
+
+    # 记录心跳
+    ServerStatus.heartbeat(server_id)
+
+    # 检查是否有超时服务器，自动关闭其会话
+    offline_servers = ServerStatus.check_offline(timeout_seconds=60)
+    for sid in offline_servers:
+        now = datetime.utcnow()
+        open_sessions = LoginSession.query.filter_by(
+            server_id=sid, logout_time=None
+        ).all()
+        for s in open_sessions:
+            s.close_session(logout_time=now)
+
     # 记录API访问日志
     log = Log(
         level='info',
-        message='API健康检查',
+        message=f'API健康检查: {server_id}',
         source='api',
         ip_address=request.remote_addr,
-        details=f'endpoint: /health, method: GET'
+        server_id=server_id,
+        details=f'endpoint: /health, method: GET, server_id: {server_id}'
     )
     db.session.add(log)
     db.session.commit()
@@ -29,9 +52,10 @@ def health():
     return jsonify({
         'success': True,
         'status': 'ok',
+        'server_id': server_id,
         'timestamp': datetime.utcnow().isoformat(),
         'service': 'CWhitelist API',
-        'version': '1.0.0'
+        'version': '2.0.0'
     })
 
 
@@ -41,8 +65,15 @@ def sync_whitelist():
     """同步白名单数据"""
     try:
         # 获取查询参数
-        server_id = request.args.get('server_id')
+        server_id = request.args.get('server_id', '').strip()
         only_active = request.args.get('only_active', 'true').lower() == 'true'
+
+        # server_id 为必填参数
+        if not server_id:
+            return jsonify({
+                'success': False,
+                'message': 'server_id is required'
+            }), 400
 
         # 获取Token信息（通过装饰器附加）
         token = getattr(request, 'token', None)
@@ -56,12 +87,8 @@ def sync_whitelist():
             'token_name': token.name if token else None
         }
 
-        # 构建查询
-        query = WhitelistEntry.query
-
-        if server_id:
-            # 这里可以添加服务器特定的查询逻辑
-            pass
+        # 构建查询 - 按server_id过滤
+        query = WhitelistEntry.query.filter_by(server_id=server_id)
 
         if only_active:
             query = query.filter_by(is_active=True)
@@ -148,7 +175,7 @@ def add_whitelist_entry():
             }), 403
 
         # 验证必需字段
-        required_fields = ['type', 'value']
+        required_fields = ['type', 'value', 'server_id']
         for field in required_fields:
             if field not in data:
                 return jsonify({
@@ -158,6 +185,13 @@ def add_whitelist_entry():
 
         entry_type = data['type'].lower()
         value = data['value'].strip()
+        server_id = data['server_id'].strip()
+
+        if not server_id:
+            return jsonify({
+                'success': False,
+                'message': 'server_id cannot be empty'
+            }), 400
 
         # 验证类型
         if entry_type not in ['name', 'uuid', 'ip']:
@@ -166,10 +200,11 @@ def add_whitelist_entry():
                 'message': 'Invalid type. Must be: name, uuid, or ip'
             }), 400
 
-        # 检查是否已存在
+        # 检查是否已存在（相同server_id下）
         existing = WhitelistEntry.query.filter_by(
             type=entry_type,
-            value=value
+            value=value,
+            server_id=server_id
         ).first()
 
         if existing:
@@ -182,6 +217,7 @@ def add_whitelist_entry():
         entry = WhitelistEntry(
             type=entry_type,
             value=value,
+            server_id=server_id,
             description=data.get('description', ''),
             created_by=data.get('created_by', f'api_token_{token.name if token else "unknown"}'),
             is_active=data.get('is_active', True)
@@ -255,10 +291,19 @@ def delete_whitelist_entry(entry_type, value):
                 'message': 'Token does not have delete permission'
             }), 403
 
-        # 查找条目
+        # server_id 为必填参数
+        server_id = request.args.get('server_id', '').strip()
+        if not server_id:
+            return jsonify({
+                'success': False,
+                'message': 'server_id is required'
+            }), 400
+
+        # 查找条目（按server_id范围查找）
         entry = WhitelistEntry.query.filter_by(
             type=entry_type.lower(),
-            value=value
+            value=value,
+            server_id=server_id
         ).first()
 
         if not entry:
@@ -337,7 +382,7 @@ def log_login():
         token = getattr(request, 'token', None)
 
         # 验证必需字段
-        required_fields = ['player_name', 'player_uuid', 'player_ip', 'allowed']
+        required_fields = ['player_name', 'player_uuid', 'player_ip', 'allowed', 'server_id']
         for field in required_fields:
             if field not in data:
                 return jsonify({
@@ -350,21 +395,56 @@ def log_login():
         player_ip = data['player_ip']
         allowed = data['allowed']
         check_type = data.get('check_type')
+        server_id = data['server_id']
 
-        # 记录Minecraft玩家登录事件
+        # 记录Minecraft玩家登入事件
         log = Log.create_login_log(
             player_name=player_name,
             player_uuid=player_uuid,
             player_ip=player_ip,
             allowed=allowed,
             check_type=check_type,
+            server_id=server_id,
             user_id=token.user_id if token else None
         )
+
+        # 如果允许登入，创建或更新会话记录
+        session_id = None
+        if allowed:
+            # 查找该玩家是否有未关闭的会话
+            open_session = LoginSession.query.filter_by(
+                player_name=player_name,
+                server_id=server_id,
+                logout_time=None
+            ).first()
+            if open_session:
+                # 已有打开会话，更新登入时间
+                open_session.login_time = datetime.utcnow()
+                open_session.login_ip = player_ip
+                if player_uuid:
+                    open_session.player_uuid = player_uuid
+                db.session.commit()
+                session_id = open_session.id
+            else:
+                # 创建新会话 - 如服务器刚恢复，用恢复时间
+                recovery_time = ServerStatus.get_recovery_time(server_id)
+                login_time = recovery_time or datetime.utcnow()
+                new_session = LoginSession(
+                    player_name=player_name,
+                    player_uuid=player_uuid,
+                    server_id=server_id,
+                    login_time=login_time,
+                    login_ip=player_ip,
+                )
+                db.session.add(new_session)
+                db.session.commit()
+                session_id = new_session.id
 
         return jsonify({
             'success': True,
             'message': 'Login logged successfully',
             'log_id': log.id,
+            'session_id': session_id,
             'logged_by': f'api_token_{token.name if token else "unknown"}'
         })
 
@@ -387,8 +467,116 @@ def log_login():
         }), 500
 
 
+@api_bp.route('/login/logout', methods=['POST'])
+@require_api_auth
+def log_logout():
+    """记录登出事件"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': 'No data provided'
+            }), 400
+
+        token = getattr(request, 'token', None)
+
+        required_fields = ['player_name', 'player_uuid', 'player_ip', 'server_id']
+        for field in required_fields:
+            if field not in data:
+                return jsonify({
+                    'success': False,
+                    'message': f'Missing required field: {field}'
+                }), 400
+
+        player_name = data['player_name']
+        player_uuid = data['player_uuid']
+        player_ip = data['player_ip']
+        server_id = data['server_id']
+
+        # 记录登出日志
+        log = Log(
+            level='login',
+            message=f'Player logout: {player_name}',
+            source='api',
+            ip_address=player_ip,
+            player_name=player_name,
+            player_uuid=player_uuid,
+            server_id=server_id,
+            user_id=token.user_id if token else None,
+            details=f'player_name: {player_name}, player_uuid: {player_uuid}, action: logout, server_id: {server_id}'
+        )
+        db.session.add(log)
+
+        # 关闭最近的打开会话
+        open_session = LoginSession.query.filter_by(
+            player_name=player_name,
+            server_id=server_id,
+            logout_time=None
+        ).order_by(LoginSession.login_time.desc()).first()
+
+        if open_session:
+            open_session.close_session(logout_time=datetime.utcnow(), logout_ip=player_ip)
+            db.session.commit()
+            return jsonify({
+                'success': True,
+                'message': 'Logout logged successfully',
+                'log_id': log.id,
+                'session_id': open_session.id,
+                'duration': open_session.duration,
+            })
+        else:
+            # 没有打开会话 - 用服务器恢复时间作为登入时间，正常关闭
+            recovery_time = ServerStatus.get_recovery_time(server_id)
+            login_time = recovery_time or datetime.utcnow()
+            logout_time = datetime.utcnow()
+            delta = logout_time - login_time
+            if hasattr(delta, 'total_seconds'):
+                dur = int(delta.total_seconds()) if delta.total_seconds() > 0 else 0
+            else:
+                dur = 0
+
+            new_session = LoginSession(
+                player_name=player_name,
+                player_uuid=player_uuid,
+                server_id=server_id,
+                login_time=login_time,
+                logout_time=logout_time,
+                duration=dur,
+                login_ip=player_ip,
+                logout_ip=player_ip,
+            )
+            db.session.add(new_session)
+            db.session.commit()
+            return jsonify({
+                'success': True,
+                'message': 'Logout logged (auto-created session)',
+                'log_id': log.id,
+                'session_id': new_session.id,
+                'duration': new_session.duration,
+            })
+
+    except Exception as e:
+        db.session.rollback()
+        log = Log(
+            level='error',
+            message='API记录登出事件失败',
+            source='api',
+            ip_address=request.remote_addr,
+            details=f'endpoint: /login/logout, error: {str(e)}'
+        )
+        db.session.add(log)
+        db.session.commit()
+
+        return jsonify({
+            'success': False,
+            'message': 'Internal server error',
+            'error': str(e)
+        }), 500
+
+
 @api_bp.route('/tokens/verify', methods=['GET'])
-@require_api_auth  # 添加Token验证
+@require_api_auth
 def verify_token():
     """验证Token有效性"""
     try:

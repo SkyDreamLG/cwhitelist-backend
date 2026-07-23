@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="Python 3.12 (cwhitelist-backend)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.12 (cwhitelist-backend)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.12 (cwhitelist_configuration_GUI)" project-jdk-type="Python SDK" />
 </project>

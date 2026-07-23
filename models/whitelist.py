@@ -14,6 +14,7 @@ class WhitelistEntry(db.Model):
     value = db.Column(db.String(255), nullable=False, index=True)
     description = db.Column(db.String(255))
     created_by = db.Column(db.String(64), nullable=False)
+    server_id = db.Column(db.String(36), nullable=False, index=True)  # 服务器ID，必填
     created_at = db.Column(db.DateTime, default=now_utc)  # 修改这里
     expires_at = db.Column(db.DateTime, nullable=True)
     is_active = db.Column(db.Boolean, default=True, index=True)
@@ -35,6 +36,7 @@ class WhitelistEntry(db.Model):
             'created_at': format_datetime(self.created_at) if self.created_at else None,
             'expires_at': format_datetime(self.expires_at) if self.expires_at else None,
             'is_active': self.is_active,
+            'server_id': self.server_id,
             'last_login': format_datetime(self.last_login) if self.last_login else None,
             'login_count': self.login_count,
             'last_login_ip': self.last_login_ip

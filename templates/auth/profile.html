@@ -1,46 +1,47 @@
 {% extends "layout.html" %}
 
-{% block title %}个人资料{% endblock %}
+{% block title %}{{ _('个人资料') }}{% endblock %}
+{% block page_title %}{{ _('个人资料') }}{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-md-6 mx-auto">
-        <h1 class="mb-4">个人资料</h1>
+        <h1 class="mb-4">{{ _('个人资料') }}</h1>
 
         <div class="card">
             <div class="card-body">
-                <h5 class="card-title">基本信息</h5>
+                <h5 class="card-title">{{ _('基本信息') }}</h5>
                 <table class="table">
                     <tr>
-                        <th>用户名</th>
+                        <th>{{ _('用户名') }}</th>
                         <td>{{ current_user.username }}</td>
                     </tr>
                     <tr>
-                        <th>邮箱</th>
+                        <th>{{ _('邮箱') }}</th>
                         <td>{{ current_user.email }}</td>
                     </tr>
                     <tr>
-                        <th>角色</th>
+                        <th>{{ _('角色') }}</th>
                         <td>
                             <span class="badge bg-{{ 'success' if current_user.is_admin() else 'info' }}">
-                                {{ '管理员' if current_user.is_admin() else '普通用户' }}
+                                {{ _('管理员') if current_user.is_admin() else _('普通用户') }}
                             </span>
                         </td>
                     </tr>
                     <tr>
-                        <th>账户状态</th>
+                        <th>{{ _('账户状态') }}</th>
                         <td>
                             <span class="badge bg-{{ 'success' if current_user.is_active else 'danger' }}">
-                                {{ '活跃' if current_user.is_active else '禁用' }}
+                                {{ _('活跃') if current_user.is_active else _('禁用') }}
                             </span>
                         </td>
                     </tr>
                     <tr>
-                        <th>注册时间</th>
+                        <th>{{ _('注册时间') }}</th>
                         <td>{{ format_datetime(current_user.created_at) }}</td>
                     </tr>
                     <tr>
-                        <th>系统时区</th>
+                        <th>{{ _('系统时区') }}</th>
                         <td>
                             <span class="badge bg-info">{{ timezone_info.timezone }}</span>
                             (UTC{{ '+' if timezone_info.utc_offset >= 0 else '' }}{{ '%.1f'|format(timezone_info.utc_offset) }})
@@ -49,16 +50,16 @@
                 </table>
 
                 <div class="alert alert-info mt-3">
-                    <h6><i class="bi bi-info-circle"></i> 时区信息</h6>
+                    <h6><i class="bi bi-info-circle"></i> {{ _('时区信息') }}</h6>
                     <p class="mb-0">
-                        当前系统时间：{{ timezone_info.current_local }}<br>
-                        UTC时间：{{ timezone_info.current_utc }}
+                        {{ _('当前系统时间') }}：{{ timezone_info.current_local }}<br>
+                        {{ _('UTC时间') }}：{{ timezone_info.current_utc }}
                     </p>
                 </div>
 
                 <div class="text-center mt-3">
                     <a href="{{ url_for('web.dashboard') }}" class="btn btn-primary">
-                        <i class="bi bi-house"></i> 返回首页
+                        <i class="bi bi-house"></i> {{ _('返回首页') }}
                     </a>
                 </div>
             </div>

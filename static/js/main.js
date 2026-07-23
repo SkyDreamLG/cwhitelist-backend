@@ -1,227 +1,253 @@
-// 主JavaScript文件
+/* ============================================================
+   CWhitelist - 侧边栏交互脚本
+   ============================================================ */
 
-$(document).ready(function() {
-    // 初始化工具提示
-    $('[data-bs-toggle="tooltip"]').tooltip();
+document.addEventListener('DOMContentLoaded', function () {
 
-    // 初始化弹出框
-    $('[data-bs-toggle="popover"]').popover();
+    // ==================== DOM 元素 ====================
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+    const sidebarToggle = document.getElementById('sidebarToggle');
+    const sidebarToggleBtnText = sidebarToggle ? sidebarToggle.querySelector('.sidebar-toggle-text') : null;
+    const sidebarToggleMobile = document.getElementById('sidebarToggleMobile');
+    const sidebarClose = document.getElementById('sidebarClose');
 
-    // 自动消失的警报
-    $('.alert-auto-dismiss').delay(5000).fadeOut('slow');
+    // ==================== 保存侧边栏状态到 localStorage ====================
+    function saveSidebarState(collapsed) {
+        try {
+            localStorage.setItem('sidebar-collapsed', collapsed ? 'true' : 'false');
+        } catch (e) { /* 忽略 */ }
+    }
 
-    // 表单提交确认
-    $('form[data-confirm]').on('submit', function(e) {
-        const message = $(this).data('confirm') || '确定要执行此操作吗？';
-        if (!confirm(message)) {
-            e.preventDefault();
+    function loadSidebarState() {
+        try {
+            return localStorage.getItem('sidebar-collapsed') === 'true';
+        } catch (e) {
             return false;
         }
-        return true;
-    });
+    }
 
-    // 批量操作复选框
-    $('#selectAll').on('change', function() {
-        $('.select-item').prop('checked', $(this).prop('checked'));
-    });
-
-    // 实时搜索
-    $('.search-input').on('keyup', function() {
-        const search = $(this).val().toLowerCase();
-        const table = $(this).closest('.card').find('table');
-
-        table.find('tbody tr').each(function() {
-            const text = $(this).text().toLowerCase();
-            $(this).toggle(text.includes(search));
-        });
-    });
-
-    // 日期选择器
-    $('.date-picker').each(function() {
-        $(this).attr('type', 'date');
-    });
-
-    // API测试功能
-    $('.test-api').on('click', function(e) {
-        e.preventDefault();
-        const endpoint = $(this).data('endpoint');
-        const method = $(this).data('method') || 'GET';
-        const token = $('#apiToken').val();
-
-        if (!token && endpoint !== '/api/health') {
-            alert('请输入API令牌');
-            return;
+    // ==================== 桌面端：切换侧边栏折叠/展开 ====================
+    if (sidebar && sidebarToggle) {
+        // 恢复上次状态
+        if (loadSidebarState()) {
+            sidebar.classList.add('collapsed');
         }
 
-        $.ajax({
-            url: endpoint,
-            method: method,
-            headers: token ? { 'Authorization': 'Bearer ' + token } : {},
-            success: function(response) {
-                $('#apiResult').text(JSON.stringify(response, null, 2));
-                $('#apiModal').modal('show');
-            },
-            error: function(xhr) {
-                $('#apiResult').text(JSON.stringify(xhr.responseJSON || { error: xhr.statusText }, null, 2));
-                $('#apiModal').modal('show');
-            }
-        });
-    });
+        sidebarToggle.addEventListener('click', function (e) {
+            e.stopPropagation();
+            sidebar.classList.toggle('collapsed');
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            saveSidebarState(isCollapsed);
 
-    // 复制到剪贴板
-    $('.copy-to-clipboard').on('click', function() {
-        const text = $(this).data('text') || $(this).prev('input').val();
-
-        navigator.clipboard.writeText(text).then(function() {
-            const $btn = $(this);
-            const original = $btn.html();
-            $btn.html('<i class="fas fa-check"></i> 已复制');
-            setTimeout(function() {
-                $btn.html(original);
-            }, 2000);
-        }.bind(this)).catch(function(err) {
-            console.error('复制失败: ', err);
-            alert('复制失败，请手动复制');
-        });
-    });
-
-    // 数据表格增强
-    $('.data-table').each(function() {
-        const $table = $(this);
-        const $search = $table.closest('.card').find('.table-search');
-
-        if ($search.length) {
-            $search.on('keyup', function() {
-                const value = $(this).val().toLowerCase();
-                $table.find('tbody tr').filter(function() {
-                    $(this).toggle($(this).text().toLowerCase().indexOf(value) > -1);
-                });
-            });
-        }
-    });
-
-    // 自动刷新仪表板
-    if (window.location.pathname === '/dashboard') {
-        setInterval(function() {
-            $.get('/api/stats', function(data) {
-                if (data.success) {
-                    // 更新统计数据
-                    $('#totalEntries').text(data.stats.whitelist.total);
-                    $('#activeEntries').text(data.stats.whitelist.active);
+            // 更新按钮图标方向
+            const icon = sidebarToggle.querySelector('i');
+            if (icon) {
+                if (isCollapsed) {
+                    icon.classList.remove('bi-chevron-bar-left');
+                    icon.classList.add('bi-chevron-bar-right');
+                } else {
+                    icon.classList.remove('bi-chevron-bar-right');
+                    icon.classList.add('bi-chevron-bar-left');
                 }
-            });
-        }, 30000); // 每30秒刷新一次
+            }
+        });
+
+        // 初始化图标
+        if (sidebar.classList.contains('collapsed')) {
+            const icon = sidebarToggle.querySelector('i');
+            if (icon) {
+                icon.classList.remove('bi-chevron-bar-left');
+                icon.classList.add('bi-chevron-bar-right');
+            }
+        }
     }
 
-    // 平滑滚动
-    $('a[href^="#"]').on('click', function(e) {
-        if (this.hash !== '') {
-            e.preventDefault();
-            const hash = this.hash;
-            $('html, body').animate({
-                scrollTop: $(hash).offset().top - 70
-            }, 800);
+    // ==================== 移动端：打开/关闭侧边栏 ====================
+    function openSidebarMobile() {
+        if (sidebar) {
+            sidebar.classList.add('mobile-show');
+            sidebar.classList.remove('collapsed');
         }
-    });
+        if (sidebarOverlay) {
+            sidebarOverlay.classList.add('show');
+        }
+        document.body.style.overflow = 'hidden';
+    }
 
-    // 实时通知（WebSocket示例）
-    if (typeof io !== 'undefined') {
-        const socket = io();
+    function closeSidebarMobile() {
+        if (sidebar) {
+            sidebar.classList.remove('mobile-show');
+        }
+        if (sidebarOverlay) {
+            sidebarOverlay.classList.remove('show');
+        }
+        document.body.style.overflow = '';
+    }
 
-        socket.on('whitelist_update', function(data) {
-            showNotification('白名单已更新', data.message || '白名单条目有变更', 'info');
-        });
-
-        socket.on('server_status', function(data) {
-            showNotification('服务器状态变更', data.server + ': ' + data.status, 'warning');
-        });
-
-        socket.on('login_event', function(data) {
-            if (!data.allowed) {
-                showNotification('登录被拒绝', data.player + ' 尝试登录被拒绝', 'danger');
+    if (sidebarToggleMobile) {
+        sidebarToggleMobile.addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (sidebar && sidebar.classList.contains('mobile-show')) {
+                closeSidebarMobile();
+            } else {
+                openSidebarMobile();
             }
         });
     }
 
-    // 显示通知
-    function showNotification(title, message, type) {
-        const notification = $(
-            '<div class="toast" role="alert" aria-live="assertive" aria-atomic="true">' +
-            '<div class="toast-header">' +
-            '<strong class="me-auto">' + title + '</strong>' +
-            '<small class="text-muted">刚刚</small>' +
-            '<button type="button" class="btn-close" data-bs-dismiss="toast"></button>' +
-            '</div>' +
-            '<div class="toast-body">' + message + '</div>' +
-            '</div>'
-        );
+    if (sidebarClose) {
+        sidebarClose.addEventListener('click', function (e) {
+            e.stopPropagation();
+            closeSidebarMobile();
+        });
+    }
 
-        notification.addClass('bg-' + type + ' text-white');
-        $('#notificationContainer').append(notification);
+    // 点击遮罩层关闭
+    if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', function () {
+            closeSidebarMobile();
+        });
+    }
 
-        const toast = new bootstrap.Toast(notification[0]);
-        toast.show();
+    // 按 ESC 关闭
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && sidebar && sidebar.classList.contains('mobile-show')) {
+            closeSidebarMobile();
+        }
+    });
 
-        // 自动移除
-        setTimeout(function() {
-            notification.remove();
+    // ==================== 窗口大小改变时处理 ====================
+    let lastWindowWidth = window.innerWidth;
+    window.addEventListener('resize', function () {
+        const currentWidth = window.innerWidth;
+        // 从移动端切换到桌面端时，关闭移动端侧边栏
+        if (lastWindowWidth <= 991 && currentWidth > 991) {
+            closeSidebarMobile();
+        }
+        lastWindowWidth = currentWidth;
+    });
+
+    // ==================== 子菜单展开时保持同级只有一个打开 ====================
+    const submenuToggles = sidebar ? sidebar.querySelectorAll('[data-bs-toggle="collapse"]') : [];
+    submenuToggles.forEach(function (toggle) {
+        toggle.addEventListener('click', function () {
+            // 在折叠模式下点击展开的子菜单，先展开侧边栏
+            if (sidebar && sidebar.classList.contains('collapsed') && !sidebar.classList.contains('mobile-show')) {
+                sidebar.classList.remove('collapsed');
+                saveSidebarState(false);
+                const icon = sidebarToggle ? sidebarToggle.querySelector('i') : null;
+                if (icon) {
+                    icon.classList.remove('bi-chevron-bar-right');
+                    icon.classList.add('bi-chevron-bar-left');
+                }
+                // 短暂延迟后显示子菜单
+                const targetId = toggle.getAttribute('href');
+                setTimeout(function () {
+                    const target = document.querySelector(targetId);
+                    if (target && !target.classList.contains('show')) {
+                        // BS collapse API
+                        const bsCollapse = new bootstrap.Collapse(target, {toggle: true});
+                    }
+                }, 300);
+            }
+        });
+    });
+
+    // ==================== 自动解除 alert ====================
+    const autoDismissAlerts = document.querySelectorAll('.alert-dismissible');
+    autoDismissAlerts.forEach(function (alert) {
+        setTimeout(function () {
+            const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
+            if (bsAlert) {
+                bsAlert.close();
+            }
         }, 5000);
-    }
+    });
 
-    // 导出功能
-    $('.export-btn').on('click', function() {
-        const format = $(this).data('format') || 'json';
-        const endpoint = $(this).data('endpoint');
-
-        $.ajax({
-            url: endpoint + '?format=' + format,
-            method: 'GET',
-            headers: { 'Authorization': 'Bearer ' + $('#apiToken').val() },
-            success: function(data) {
-                let content, mime, filename;
-
-                if (format === 'json') {
-                    content = JSON.stringify(data, null, 2);
-                    mime = 'application/json';
-                    filename = 'export.json';
-                } else if (format === 'csv') {
-                    content = convertToCSV(data);
-                    mime = 'text/csv';
-                    filename = 'export.csv';
-                }
-
-                downloadFile(content, filename, mime);
+    // ==================== 确认删除对话框 ====================
+    const confirmDeleteLinks = document.querySelectorAll('[data-confirm]');
+    confirmDeleteLinks.forEach(function (link) {
+        link.addEventListener('click', function (e) {
+            const message = link.getAttribute('data-confirm') || 'Are you sure?';
+            if (!confirm(message)) {
+                e.preventDefault();
+                e.stopPropagation();
             }
         });
     });
 
-    function convertToCSV(data) {
-        // 简单的CSV转换
-        const array = typeof data !== 'object' ? JSON.parse(data) : data;
-        let str = '';
+    // ==================== active 菜单判断附加逻辑 ====================
+    // 确保 JS 端的路由高亮也能正常工作（作为 Jinja2 判断的补充）
+    (function highlightCurrentPath() {
+        if (!sidebar) return;
+        const currentPath = window.location.pathname;
+        const navLinks = sidebar.querySelectorAll('.nav-link');
+        navLinks.forEach(function (link) {
+            const href = link.getAttribute('href');
+            // 跳过子菜单切换和 # 链接
+            if (!href || href.startsWith('#') || href.includes('collapse')) return;
 
-        // 标题行
-        if (array.length > 0) {
-            str += Object.keys(array[0]).join(',') + '\r\n';
-        }
-
-        // 数据行
-        array.forEach(item => {
-            str += Object.values(item).join(',') + '\r\n';
+            // 完全匹配或前缀匹配（处理带参数的 URL）
+            if (href === currentPath ||
+                (href !== '/' && currentPath.startsWith(href + '?'))) {
+                // 如果已有 Jinja2 active，此处额外确保
+                link.classList.add('active');
+            }
         });
+    })();
 
-        return str;
-    }
-
-    function downloadFile(content, filename, mime) {
-        const blob = new Blob([content], { type: mime });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
 });
+
+// ==================== 滚动位置保存与恢复 ====================
+// 解决表单 onchange="submit()" 导致页面弹到顶部的问题
+(function() {
+    // 页面加载时恢复滚动
+    var state = sessionStorage.getItem('_scrollState');
+    if (state) {
+        try {
+            var data = JSON.parse(state);
+            // 仅当是同一页面（路径相同）时恢复滚动，跨页面导航不恢复
+            if (data.path === window.location.pathname) {
+                window.scrollTo(0, data.y || 0);
+            }
+        } catch(e) {}
+        sessionStorage.removeItem('_scrollState');
+    }
+
+    // 离开页面前保存滚动位置和路径
+    window.addEventListener('beforeunload', function() {
+        sessionStorage.setItem('_scrollState', JSON.stringify({
+            path: window.location.pathname,
+            y: window.scrollY
+        }));
+    });
+})();
+
+// ==================== 全局函数：切换语言 ====================
+function switchLanguage(langCode) {
+    fetch('/set-language', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: 'lang=' + encodeURIComponent(langCode)
+    })
+    .then(function(response) {
+        return response.json();
+    })
+    .then(function(data) {
+        if (data.success) {
+            // 刷新当前页面以应用新语言
+            window.location.reload();
+        } else {
+            console.error('Language switch failed:', data.error);
+        }
+    })
+    .catch(function(error) {
+        console.error('Language switch error:', error);
+        // 兜底：直接刷新页面（后端可能从 URL 参数获取）
+        window.location.href = window.location.pathname + '?lang=' + langCode;
+    });
+}

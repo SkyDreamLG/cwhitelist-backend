@@ -13,6 +13,14 @@ class Config:
     # 时区配置 - 默认从环境变量获取，但可以在设置页面修改
     TIMEZONE = os.environ.get('TIMEZONE', 'UTC')
 
+    # 多语言配置
+    LANGUAGES = {
+        'zh_CN': '简体中文',
+        'en': 'English',
+    }
+    BABEL_DEFAULT_LOCALE = 'zh_CN'
+    BABEL_TRANSLATION_DIRECTORIES = 'translations'
+
     # 数据库配置
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
                               'sqlite:///' + os.path.join(Path(__file__).parent, 'instance', 'cwhitelist.db')
@@ -55,7 +63,7 @@ class Config:
 class DevelopmentConfig(Config):
     """开发环境配置"""
     DEBUG = True
-    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(Path(__file__).parent, 'instance', 'cwhitelist_dev.db')
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///' + os.path.join(Path(__file__).parent, 'instance', 'cwhitelist.db')
     SECRET_KEY = 'dev-secret-key-do-not-use-in-production'
     TIMEZONE = os.environ.get('TIMEZONE', 'Asia/Shanghai')
 

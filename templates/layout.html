@@ -1,176 +1,245 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="{{ current_lang }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}CWhitelist{% endblock %}</title>
-
-    <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
-
-    <style>
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background-color: #f8f9fa;
-            padding-top: 20px;
-        }
-
-        .navbar-brand {
-            font-weight: bold;
-        }
-
-        .navbar-brand i {
-            margin-right: 8px;
-        }
-
-        .card {
-            border: none;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-            margin-bottom: 20px;
-        }
-
-        .card-header {
-            background-color: #f8f9fa;
-            border-bottom: 1px solid #dee2e6;
-            font-weight: 600;
-        }
-
-        .nav-link i {
-            margin-right: 5px;
-        }
-
-        .dropdown-item i {
-            margin-right: 8px;
-            width: 20px;
-            text-align: center;
-        }
-
-        .footer {
-            margin-top: auto;
-            background-color: #f8f9fa;
-            border-top: 1px solid #dee2e6;
-        }
-    </style>
-
+    <title>{% block title %}{{ _('CWhitelist') }}{% endblock %} - CWhitelist</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     {% block extra_css %}{% endblock %}
 </head>
 <body>
-    <div class="container">
-        <!-- 导航栏 -->
-        <nav class="navbar navbar-expand-lg navbar-dark bg-dark rounded mb-4">
-            <div class="container-fluid">
-                <a class="navbar-brand" href="{{ url_for('web.dashboard') }}">
-                    <i class="bi bi-shield-check"></i>CWhitelist
-                </a>
 
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
+<!-- ==================== 侧边栏遮罩层（移动端） ==================== -->
+<div class="sidebar-overlay" id="sidebarOverlay"></div>
 
-                <div class="collapse navbar-collapse" id="navbarNav">
-                    {% if current_user.is_authenticated %}
-                    <ul class="navbar-nav me-auto">
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('web.dashboard') }}">
-                                <i class="bi bi-speedometer2"></i>仪表板
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('web.whitelist') }}">
-                                <i class="bi bi-list-check"></i>白名单
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('web.logs') }}">
-                                <i class="bi bi-journal-text"></i>日志
-                            </a>
-                        </li>
-                        {% if current_user.is_admin() %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('web.settings') }}">
-                                <i class="bi bi-gear"></i>设置
-                            </a>
-                        </li>
-                        {% endif %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{{ url_for('web.api_docs') }}">
-                                <i class="bi bi-book"></i>API文档
-                            </a>
-                        </li>
-                    </ul>
-
-                    <ul class="navbar-nav">
-    <li class="nav-item dropdown">
-        <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
-            <i class="bi bi-person-circle"></i>{{ current_user.username }}
+<!-- ==================== 侧边栏 ==================== -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+        <a href="{{ url_for('web.dashboard') }}" class="sidebar-brand">
+            <i class="bi bi-shield-check"></i>
+            <span class="sidebar-brand-text">CWhitelist</span>
         </a>
-        <ul class="dropdown-menu dropdown-menu-end">
-            <li>
-                <a class="dropdown-item" href="{{ url_for('auth.profile') }}">
-                    <i class="bi bi-person"></i>个人资料
+        <button class="btn sidebar-close d-lg-none" id="sidebarClose">
+            <i class="bi bi-x-lg"></i>
+        </button>
+    </div>
+
+    <nav class="sidebar-nav" id="sidebarNav">
+        <ul class="nav flex-column">
+            <!-- 仪表盘 -->
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'web.dashboard' %}active{% endif %}" 
+                   href="{{ url_for('web.dashboard') }}">
+                    <i class="bi bi-speedometer2 nav-icon"></i>
+                    <span class="nav-text">{{ _('仪表盘') }}</span>
                 </a>
             </li>
-            {% if current_user.is_admin() %}
-            <li>
-                <a class="dropdown-item" href="{{ url_for('web.timezone_settings') }}">
-                    <i class="bi bi-clock"></i>时区设置
+
+            <!-- 白名单管理 -->
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'web.whitelist' %}active{% endif %}" 
+                   href="{{ url_for('web.whitelist') }}">
+                    <i class="bi bi-list-check nav-icon"></i>
+                    <span class="nav-text">{{ _('白名单管理') }}</span>
                 </a>
             </li>
-            {% endif %}
-            <li><hr class="dropdown-divider"></li>
-            <li>
-                <a class="dropdown-item" href="{{ url_for('web.about') }}">
-                    <i class="bi bi-info-circle"></i>关于
+
+            <!-- 系统日志 -->
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'web.logs' %}active{% endif %}" 
+                   href="{{ url_for('web.logs') }}">
+                    <i class="bi bi-journal-text nav-icon"></i>
+                    <span class="nav-text">{{ _('系统日志') }}</span>
                 </a>
             </li>
-            <li>
-                <a class="dropdown-item" href="{{ url_for('auth.logout') }}">
-                    <i class="bi bi-box-arrow-right"></i>退出
+
+            <!-- 登录日志 -->
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'web.login_logs' %}active{% endif %}"
+                   href="{{ url_for('web.login_logs') }}">
+                    <i class="bi bi-door-open nav-icon"></i>
+                    <span class="nav-text">{{ _('登陆日志') }}</span>
+                </a>
+            </li>
+
+            <!-- 用户分析 -->
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'web.user_analytics' %}active{% endif %}"
+                   href="{{ url_for('web.user_analytics') }}">
+                    <i class="bi bi-bar-chart nav-icon"></i>
+                    <span class="nav-text">{{ _('用户分析') }}</span>
+                </a>
+            </li>
+
+            <!-- 设置（子菜单） -->
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint in ['web.settings', 'web.timezone_settings', 'web.token_management'] %}active{% endif %}" 
+                   href="#settingsSubmenu" data-bs-toggle="collapse" 
+                   aria-expanded="{{ 'true' if request.endpoint in ['web.settings', 'web.timezone_settings', 'web.token_management'] else 'false' }}">
+                    <i class="bi bi-gear nav-icon"></i>
+                    <span class="nav-text">{{ _('系统设置') }}</span>
+                    <i class="bi bi-chevron-down submenu-arrow ms-auto"></i>
+                </a>
+                <ul class="collapse {% if request.endpoint in ['web.settings', 'web.timezone_settings', 'web.token_management'] %}show{% endif %} submenu" 
+                    id="settingsSubmenu">
+                    <li>
+                        <a class="nav-link sub-nav-link {% if request.endpoint == 'web.settings' %}active{% endif %}" 
+                           href="{{ url_for('web.settings') }}">
+                            <i class="bi bi-sliders nav-icon"></i>
+                            <span class="nav-text">{{ _('常规设置') }}</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="nav-link sub-nav-link {% if request.endpoint == 'web.timezone_settings' %}active{% endif %}" 
+                           href="{{ url_for('web.timezone_settings') }}">
+                            <i class="bi bi-clock nav-icon"></i>
+                            <span class="nav-text">{{ _('时区设置') }}</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="nav-link sub-nav-link {% if request.endpoint == 'web.token_management' %}active{% endif %}" 
+                           href="{{ url_for('web.token_management') }}">
+                            <i class="bi bi-key nav-icon"></i>
+                            <span class="nav-text">{{ _('Token管理') }}</span>
+                        </a>
+                    </li>
+                </ul>
+            </li>
+
+            <!-- API文档 -->
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'web.api_docs' %}active{% endif %}" 
+                   href="{{ url_for('web.api_docs') }}">
+                    <i class="bi bi-book nav-icon"></i>
+                    <span class="nav-text">{{ _('API文档') }}</span>
+                </a>
+            </li>
+
+            <!-- 关于 -->
+            <li class="nav-item">
+                <a class="nav-link {% if request.endpoint == 'web.about' %}active{% endif %}" 
+                   href="{{ url_for('web.about') }}">
+                    <i class="bi bi-info-circle nav-icon"></i>
+                    <span class="nav-text">{{ _('关于系统') }}</span>
                 </a>
             </li>
         </ul>
-    </li>
-</ul>
+    </nav>
+
+    <!-- 侧边栏底部 -->
+    <div class="sidebar-footer">
+        <button class="btn btn-sm sidebar-toggle-btn d-none d-lg-flex" id="sidebarToggle" title="{{ _('收起侧边栏') }}">
+            <i class="bi bi-chevron-bar-left"></i>
+        </button>
+    </div>
+</aside>
+
+<!-- ==================== 主内容区 ==================== -->
+<div class="main-wrapper">
+    <!-- 顶部导航栏 -->
+    <header class="topbar" id="topbar">
+        <div class="container-fluid">
+            <div class="d-flex align-items-center justify-content-between w-100">
+                <!-- 左侧：汉堡菜单（移动端）+ 面包屑/标题 -->
+                <div class="d-flex align-items-center">
+                    <button class="btn topbar-toggle d-lg-none me-2" id="sidebarToggleMobile">
+                        <i class="bi bi-list"></i>
+                    </button>
+                    <div class="topbar-title d-none d-md-block">
+                        {% block page_title %}CWhitelist{% endblock %}
+                    </div>
+                </div>
+
+                <!-- 右侧：语言切换 + 用户菜单 -->
+                <div class="d-flex align-items-center gap-2">
+                    <!-- 语言切换 -->
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle lang-switch-btn" 
+                                type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="bi bi-translate me-1"></i>
+                            {{ LANGUAGES.get(current_lang, current_lang) }}
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            {% for code, name in LANGUAGES.items() %}
+                            <li>
+                                <a class="dropdown-item {% if current_lang == code %}active{% endif %}" 
+                                   href="javascript:void(0)" 
+                                   onclick="switchLanguage('{{ code }}')">
+                                    <i class="bi bi-{% if current_lang == code %}check2{% endif %} me-2" 
+                                       style="opacity: {% if current_lang == code %}1{% else %}0{% endif %};"></i>
+                                    {{ name }}
+                                </a>
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+
+                    {% if current_user.is_authenticated %}
+                    <!-- 用户菜单 -->
+                    <div class="dropdown">
+                        <button class="btn btn-sm user-menu-btn dropdown-toggle d-flex align-items-center gap-2" 
+                                type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <div class="user-avatar">
+                                <i class="bi bi-person-circle"></i>
+                            </div>
+                            <span class="d-none d-md-inline">{{ current_user.username }}</span>
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item" href="{{ url_for('auth.profile') }}">
+                                    <i class="bi bi-person me-2"></i>{{ _('个人资料') }}
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item text-danger" href="{{ url_for('auth.logout') }}">
+                                    <i class="bi bi-box-arrow-right me-2"></i>{{ _('退出登录') }}
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                    {% else %}
+                    <a href="{{ url_for('auth.login') }}" class="btn btn-sm btn-primary">
+                        <i class="bi bi-box-arrow-in-right me-1"></i>{{ _('登录') }}
+                    </a>
                     {% endif %}
                 </div>
             </div>
-        </nav>
+        </div>
+    </header>
 
-        <!-- 闪存消息 -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show">
-                        <i class="bi bi-{{ 'check-circle' if category == 'success' else 'exclamation-triangle' if category == 'warning' else 'info-circle' if category == 'info' else 'x-circle' }} me-2"></i>
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                    </div>
-                {% endfor %}
-            {% endif %}
-        {% endwith %}
+    <!-- 页面内容区 -->
+    <main class="main-content">
+        <div class="container-fluid p-4">
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                            {{ message | safe if category == 'info' else message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
 
-        {% block content %}{% endblock %}
+            {% block content %}{% endblock %}
+        </div>
 
         <!-- 页脚 -->
-        <footer class="footer mt-5 py-3">
-            <div class="container text-center">
-                <span class="text-muted">
-                    &copy; 2026 CWhitelist
-                    {% if current_user.is_authenticated %}
-                    | 欢迎, {{ current_user.username }}
-                    {% endif %}
-                </span>
+        <footer class="main-footer">
+            <div class="container-fluid text-center py-3 text-muted small">
+                &copy; 2026 CWhitelist | Powered by Flask
             </div>
         </footer>
-    </div>
+    </main>
+</div>
 
-    <!-- Bootstrap 5 JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- jQuery -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-
-    {% block extra_js %}{% endblock %}
+<!-- CSRF Token for AJAX -->
+<script>const APP_CSRF_TOKEN = '{{ csrf_token() if csrf_token else "" }}';</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% block extra_js %}{% endblock %}
 </body>
 </html>

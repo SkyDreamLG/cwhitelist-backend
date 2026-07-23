@@ -1,9 +1,10 @@
 from flask import Blueprint, render_template, request, flash, redirect, url_for
 from flask_login import login_user, logout_user, login_required, current_user
+from flask_babel import _
 
 from models.database import db
 from models.user import User
-from models.log import Log  # 添加这行
+from models.log import Log
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -20,7 +21,7 @@ def login():
     remember = request.form.get('remember', False)
 
     if not username or not password:
-        flash('请输入用户名和密码', 'error')
+        flash(_('请输入用户名和密码'), 'error')
         return render_template('auth/login.html')
 
     # 查找用户
@@ -40,7 +41,7 @@ def login():
         db.session.add(log)
         db.session.commit()
 
-        flash('用户名或密码错误', 'error')
+        flash(_('用户名或密码错误'), 'error')
         return render_template('auth/login.html')
 
     if not user.is_active:
@@ -56,7 +57,7 @@ def login():
         db.session.add(log)
         db.session.commit()
 
-        flash('账户已被禁用，请联系管理员', 'error')
+        flash(_('账户已被禁用，请联系管理员'), 'error')
         return render_template('auth/login.html')
 
     # 登录成功
@@ -97,7 +98,7 @@ def logout():
     db.session.commit()
 
     logout_user()
-    flash('您已成功退出登录', 'success')
+    flash(_('您已成功退出登录'), 'success')
     return redirect(url_for('auth.login'))
 
 

@@ -1,0 +1,197 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ _('登陆日志') }}{% endblock %}
+{% block page_title %}{{ _('登陆日志') }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .log-level-login { color: #28a745; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-12">
+        <h1 class="mb-4">{{ _('登陆日志') }}</h1>
+    </div>
+</div>
+
+<div class="row mb-4">
+    <!-- {{ _('筛选表单') }} -->
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-body">
+                <form method="GET" class="row g-3" id="filterForm">
+                    <div class="col-md-2">
+                        <label class="form-label">{{ _('玩家') }}</label>
+                        <input type="text" class="form-control" name="player_search" value="{{ filters.player_search }}"
+                               placeholder="{{ _('搜索玩家...') }}" list="playerNameList" autocomplete="off">
+                        <datalist id="playerNameList">
+                            {% for name in player_names %}
+                            <option value="{{ name }}">
+                            {% endfor %}
+                        </datalist>
+                    </div>
+
+                    <div class="col-md-2">
+                        <label class="form-label">{{ _('服务器') }}</label>
+                        <select class="form-select" name="server_id">
+                            <option value="">{{ _('所有服务器') }}</option>
+                            {% for sid in server_ids %}
+                            <option value="{{ sid }}" {% if filters.server_id == sid %}selected{% endif %}>{{ sid }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="col-md-3">
+                        <label class="form-label d-block">{{ _('事件类型') }}</label>
+                        <div class="form-check form-check-inline">
+                            <input type="hidden" name="show_success" value="0">
+                            <input class="form-check-input" type="checkbox" name="show_success" value="1" id="chk_success"
+                                   {% if filters.show_success == '1' %}checked{% endif %} onchange="this.form.submit()">
+                            <label class="form-check-label" for="chk_success">{{ _('允许') }}</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input type="hidden" name="show_denied" value="0">
+                            <input class="form-check-input" type="checkbox" name="show_denied" value="1" id="chk_denied"
+                                   {% if filters.show_denied == '1' %}checked{% endif %} onchange="this.form.submit()">
+                            <label class="form-check-label" for="chk_denied">{{ _('拒绝') }}</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input type="hidden" name="show_logout" value="0">
+                            <input class="form-check-input" type="checkbox" name="show_logout" value="1" id="chk_logout"
+                                   {% if filters.show_logout == '1' %}checked{% endif %} onchange="this.form.submit()">
+                            <label class="form-check-label" for="chk_logout">{{ _('登出') }}</label>
+                        </div>
+                    </div>
+
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary me-2">{{ _('筛选') }}</button>
+                        <a href="{{ url_for('web.login_logs') }}" class="btn btn-secondary">{{ _('重置') }}</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- {{ _('日志列表') }} -->
+    <div class="col-md-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">{{ _('登陆记录') }}</h5>
+                <span class="badge bg-primary">{{ _('%(total)s 条记录', total=pagination.total) }}</span>
+            </div>
+            <div class="card-body">
+                {% if logs %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>{{ _('时间') }}</th>
+                                <th>{{ _('玩家名称') }}</th>
+                                <th>{{ _('玩家UUID') }}</th>
+                                <th>{{ _('IP地址') }}</th>
+                                <th>{{ _('服务器') }}</th>
+                                <th>{{ _('结果') }}</th>
+                                <th>{{ _('详情') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for log in logs %}
+                            <tr>
+                                <td>{{ format_datetime(log.created_at) }}</td>
+                                <td>{{ log.player_name or '-' }}</td>
+                                <td><code style="font-size: 0.8em;">{{ log.player_uuid or '-' }}</code></td>
+                                <td>{% if log.ip_address == '<host>' %}{{ _('本地登陆') }}{% else %}{{ log.ip_address or '-' }}{% endif %}</td>
+                                <td>{{ log.server_id or '-' }}</td>
+                                <td>
+                                    {% if log.details and 'action: logout' in log.details %}
+                                    <span class="badge bg-info">{{ _('登出') }}</span>
+                                    {% elif log.details and 'allowed: True' in log.details %}
+                                    <span class="badge bg-success">{{ _('允许') }}</span>
+                                    {% elif log.details and 'allowed: False' in log.details %}
+                                    <span class="badge bg-danger">{{ _('拒绝') }}</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">-</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if log.details %}
+                                    <button type="button" class="btn btn-sm btn-outline-info"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#detailsModal{{ log.id }}">
+                                        {{ _('查看') }}
+                                    </button>
+
+                                    <!-- {{ _('详情模态框') }} -->
+                                    <div class="modal fade" id="detailsModal{{ log.id }}" tabindex="-1">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">{{ _('登陆详情') }}</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <pre class="bg-light p-3">{{ log.details }}</pre>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% else %}
+                                    -
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- {{ _('分页') }} -->
+                {% if pagination.pages > 1 %}
+                <nav aria-label="Page navigation">
+                    <ul class="pagination justify-content-center">
+                        {% if pagination.has_prev %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('web.login_logs', page=pagination.prev_num, **filters) }}">{{ _('上一页') }}</a>
+                        </li>
+                        {% endif %}
+
+                        {% for page_num in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+                            {% if page_num %}
+                                {% if page_num == pagination.page %}
+                                <li class="page-item active">
+                                    <span class="page-link">{{ page_num }}</span>
+                                </li>
+                                {% else %}
+                                <li class="page-item">
+                                    <a class="page-link" href="{{ url_for('web.login_logs', page=page_num, **filters) }}">{{ page_num }}</a>
+                                </li>
+                                {% endif %}
+                            {% else %}
+                                <li class="page-item disabled"><span class="page-link">...</span></li>
+                            {% endif %}
+                        {% endfor %}
+
+                        {% if pagination.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="{{ url_for('web.login_logs', page=pagination.next_num, **filters) }}">{{ _('下一页') }}</a>
+                        </li>
+                        {% endif %}
+                    </ul>
+                </nav>
+                {% endif %}
+
+                {% else %}
+                <div class="text-center py-4">
+                    <p class="text-muted">{{ _('暂无登陆记录') }}</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

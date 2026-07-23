@@ -1,5 +1,6 @@
 from datetime import datetime, timedelta
 import secrets
+from flask_babel import _
 from .database import db
 from utils.timezone import now_utc
 import pytz
@@ -101,14 +102,14 @@ class Token(db.Model):
         """获取权限显示文本"""
         permissions = []
         if self.can_read:
-            permissions.append('读取')
+            permissions.append(_('读取'))
         if self.can_write:
-            permissions.append('写入')
+            permissions.append(_('写入'))
         if self.can_delete:
-            permissions.append('删除')
+            permissions.append(_('删除'))
         if self.can_manage:
-            permissions.append('管理')
-        return '、'.join(permissions) if permissions else '无'
+            permissions.append(_('管理'))
+        return '、'.join(permissions) if permissions else _('无')
 
     @classmethod
     def create_token(cls, user_id, name, permissions=None, days_valid=365):

@@ -1,6 +1,7 @@
 {% extends "layout.html" %}
 
-{% block title %}系统日志{% endblock %}
+{% block title %}{{ _('系统日志') }}{% endblock %}
+{% block page_title %}{{ _('系统日志') }}{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -14,46 +15,54 @@
 {% block content %}
 <div class="row">
     <div class="col-md-12">
-        <h1 class="mb-4">系统日志</h1>
+        <h1 class="mb-4">{{ _('系统日志') }}</h1>
     </div>
 </div>
 
 <div class="row mb-4">
-    <!-- 筛选表单 -->
+    <!-- {{ _('筛选表单') }} -->
     <div class="col-md-12">
         <div class="card">
             <div class="card-body">
-                <!-- 筛选表单 -->
                 <form method="GET" class="row g-3" id="filterForm">
                     <div class="col-md-3">
-                        <label class="form-label">日志级别</label>
+                        <label class="form-label">{{ _('日志级别') }}</label>
                         <select class="form-select" name="level">
-                            <option value="">所有级别</option>
-                            <option value="info" {% if filters.level == 'info' %}selected{% endif %}>信息</option>
-                            <option value="warning" {% if filters.level == 'warning' %}selected{% endif %}>警告</option>
-                            <option value="error" {% if filters.level == 'error' %}selected{% endif %}>错误</option>
-                            <option value="login" {% if filters.level == 'login' %}selected{% endif %}>登录</option>
+                            <option value="">{{ _('所有级别') }}</option>
+                            <option value="info" {% if filters.level == 'info' %}selected{% endif %}>{{ _('信息') }}</option>
+                            <option value="warning" {% if filters.level == 'warning' %}selected{% endif %}>{{ _('警告') }}</option>
+                            <option value="error" {% if filters.level == 'error' %}selected{% endif %}>{{ _('错误') }}</option>
                         </select>
                     </div>
 
                     <div class="col-md-3">
-                        <label class="form-label">来源</label>
+                        <label class="form-label">{{ _('来源') }}</label>
                         <select class="form-select" name="source">
-                            <option value="">所有来源</option>
-                            <option value="api" {% if filters.source == 'api' %}selected{% endif %}>API</option>
-                            <option value="web" {% if filters.source == 'web' %}selected{% endif %}>网页</option>
-                            <option value="system" {% if filters.source == 'system' %}selected{% endif %}>系统</option>
+                            <option value="">{{ _('所有来源') }}</option>
+                            <option value="api" {% if filters.source == 'api' %}selected{% endif %}>{{ _('API') }}</option>
+                            <option value="web" {% if filters.source == 'web' %}selected{% endif %}>{{ _('网页') }}</option>
+                            <option value="system" {% if filters.source == 'system' %}selected{% endif %}>{{ _('系统') }}</option>
                         </select>
                     </div>
 
-                    <div class="col-md-6 d-flex align-items-end">
-                        <button type="submit" class="btn btn-primary me-2">筛选</button>
-                        <a href="{{ url_for('web.logs') }}" class="btn btn-secondary me-2">重置</a>
+                    <div class="col-md-3">
+                        <label class="form-label d-block">&nbsp;</label>
+                        <div class="form-check">
+                            <input type="hidden" name="hide_health" value="0">
+                            <input class="form-check-input" type="checkbox" name="hide_health" value="1" id="hide_health"
+                                   {% if filters.hide_health == '1' %}checked{% endif %} onchange="this.form.submit()">
+                            <label class="form-check-label" for="hide_health">{{ _('忽略健康检查') }}</label>
+                        </div>
+                    </div>
+
+                    <div class="col-md-5 d-flex align-items-end">
+                        <button type="submit" class="btn btn-primary me-2">{{ _('筛选') }}</button>
+                        <a href="{{ url_for('web.logs') }}" class="btn btn-secondary me-2">{{ _('重置') }}</a>
 
                         {% if current_user.is_admin() %}
-                        <!-- 清空日志按钮 - 使用简单版本，避免模态框问题 -->
+                        <!-- {{ _('清空日志按钮') }} -->
                         <button type="button" class="btn btn-danger" onclick="simpleClearLogs()">
-                            清空日志
+                            {{ _('清空日志') }}
                         </button>
                         {% endif %}
                     </div>
@@ -64,11 +73,11 @@
 </div>
 
 <div class="row mb-4">
-    <!-- 统计信息 -->
+    <!-- {{ _('统计信息') }} -->
     <div class="col-md-6">
         <div class="card">
             <div class="card-header">
-                <h5 class="card-title mb-0">日志级别统计</h5>
+                <h5 class="card-title mb-0">{{ _('日志级别统计') }}</h5>
             </div>
             <div class="card-body">
                 <ul class="list-unstyled">
@@ -77,7 +86,7 @@
                         <span class="badge bg-{{ 'info' if level == 'info' else 'warning' if level == 'warning' else 'danger' if level == 'error' else 'success' }}">
                             {{ level }}
                         </span>
-                        <span class="ms-2">{{ count }} 条</span>
+                        <span class="ms-2">{{ _('%(count)s 条', count=count) }}</span>
                     </li>
                     {% endfor %}
                 </ul>
@@ -88,14 +97,14 @@
     <div class="col-md-6">
         <div class="card">
             <div class="card-header">
-                <h5 class="card-title mb-0">日志来源统计</h5>
+                <h5 class="card-title mb-0">{{ _('日志来源统计') }}</h5>
             </div>
             <div class="card-body">
                 <ul class="list-unstyled">
                     {% for source, count in source_stats.items() %}
                     <li class="mb-2">
                         <span class="badge bg-secondary">{{ source }}</span>
-                        <span class="ms-2">{{ count }} 条</span>
+                        <span class="ms-2">{{ _('%(count)s 条', count=count) }}</span>
                     </li>
                     {% endfor %}
                 </ul>
@@ -105,12 +114,12 @@
 </div>
 
 <div class="row">
-    <!-- 日志列表 -->
+    <!-- {{ _('日志列表') }} -->
     <div class="col-md-12">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="card-title mb-0">日志列表</h5>
-                <span class="badge bg-primary">{{ pagination.total }} 条记录</span>
+                <h5 class="card-title mb-0">{{ _('日志列表') }}</h5>
+                <span class="badge bg-primary">{{ _('%(total)s 条记录', total=pagination.total) }}</span>
             </div>
             <div class="card-body">
                 {% if logs %}
@@ -118,12 +127,12 @@
                     <table class="table table-hover">
                         <thead>
                             <tr>
-                                <th>时间</th>
-                                <th>级别</th>
-                                <th>来源</th>
-                                <th>消息</th>
-                                <th>IP地址</th>
-                                <th>详情</th>
+                                <th>{{ _('时间') }}</th>
+                                <th>{{ _('级别') }}</th>
+                                <th>{{ _('来源') }}</th>
+                                <th>{{ _('消息') }}</th>
+                                <th>{{ _('IP地址') }}</th>
+                                <th>{{ _('详情') }}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -139,21 +148,21 @@
                                     <span class="badge bg-secondary">{{ log.source }}</span>
                                 </td>
                                 <td>{{ log.message }}</td>
-                                <td>{{ log.ip_address or '-' }}</td>
+                                <td>{% if log.ip_address == '<host>' %}{{ _('本地登陆') }}{% else %}{{ log.ip_address or '-' }}{% endif %}</td>
                                 <td>
                                     {% if log.details %}
                                     <button type="button" class="btn btn-sm btn-outline-info"
                                             data-bs-toggle="modal"
                                             data-bs-target="#detailsModal{{ log.id }}">
-                                        查看
+                                        {{ _('查看') }}
                                     </button>
 
-                                    <!-- 详情模态框 -->
+                                    <!-- {{ _('详情模态框') }} -->
                                     <div class="modal fade" id="detailsModal{{ log.id }}" tabindex="-1">
                                         <div class="modal-dialog">
                                             <div class="modal-content">
                                                 <div class="modal-header">
-                                                    <h5 class="modal-title">日志详情</h5>
+                                                    <h5 class="modal-title">{{ _('日志详情') }}</h5>
                                                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                                                 </div>
                                                 <div class="modal-body">
@@ -172,13 +181,13 @@
                     </table>
                 </div>
 
-                <!-- 分页 -->
+                <!-- {{ _('分页') }} -->
                 {% if pagination.pages > 1 %}
                 <nav aria-label="Page navigation">
                     <ul class="pagination justify-content-center">
                         {% if pagination.has_prev %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('web.logs', page=pagination.prev_num, **filters) }}">上一页</a>
+                            <a class="page-link" href="{{ url_for('web.logs', page=pagination.prev_num, **filters) }}">{{ _('上一页') }}</a>
                         </li>
                         {% endif %}
 
@@ -200,7 +209,7 @@
 
                         {% if pagination.has_next %}
                         <li class="page-item">
-                            <a class="page-link" href="{{ url_for('web.logs', page=pagination.next_num, **filters) }}">下一页</a>
+                            <a class="page-link" href="{{ url_for('web.logs', page=pagination.next_num, **filters) }}">{{ _('下一页') }}</a>
                         </li>
                         {% endif %}
                     </ul>
@@ -209,7 +218,7 @@
 
                 {% else %}
                 <div class="text-center py-4">
-                    <p class="text-muted">暂无日志记录</p>
+                    <p class="text-muted">{{ _('暂无日志记录') }}</p>
                 </div>
                 {% endif %}
             </div>
@@ -217,7 +226,7 @@
     </div>
 </div>
 
-<!-- 清空日志的隐藏表单 -->
+<!-- {{ _('清空日志的隐藏表单') }} -->
 <form id="clearLogsForm" method="POST" action="{{ url_for('web.clear_logs') }}" style="display: none;">
     {% if csrf_token %}
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -228,34 +237,30 @@
 
 {% block extra_js %}
 <script>
-// 简单版本清空日志函数
+// {{ _('简单版本清空日志函数') }}
 function simpleClearLogs() {
-    if (confirm('⚠️ 确定要清空所有日志吗？此操作不可撤销！\n\n当前共有 {{ pagination.total }} 条日志将被删除。')) {
-        // 显示加载状态
+    if (confirm('{{ _('⚠️ 确定要清空所有日志吗？此操作不可撤销！') }}\n\n{{ _('当前共有 %(total)s 条日志将被删除。', total=pagination.total) }}')) {
         const btn = document.querySelector('.btn-danger[onclick="simpleClearLogs()"]');
         const originalHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> 清空中...';
+        btn.innerHTML = '<i class="bi bi-hourglass-split"></i> {{ _('清空中...') }}';
         btn.disabled = true;
 
-        // 提交表单
         document.getElementById('clearLogsForm').submit();
 
-        // 如果表单提交失败，恢复按钮状态
         setTimeout(() => {
             if (btn.disabled) {
                 btn.innerHTML = originalHtml;
                 btn.disabled = false;
-                alert('清空日志请求可能已发送，请查看页面刷新后的结果。');
+                alert('{{ _('清空日志请求可能已发送，请查看页面刷新后的结果。') }}');
             }
         }, 5000);
     }
 }
 
-// 调试函数：测试清空日志功能
+// {{ _('调试函数：测试清空日志功能') }}
 function testClearFunction() {
-    console.log('测试清空日志功能...');
+    console.log('{{ _('测试清空日志功能...') }}');
 
-    // 使用fetch测试API
     fetch('{{ url_for("web.clear_logs") }}', {
         method: 'POST',
         headers: {
@@ -264,47 +269,42 @@ function testClearFunction() {
         body: 'test=true'
     })
     .then(response => {
-        console.log('响应状态:', response.status);
-        console.log('响应URL:', response.url);
+        console.log('{{ _('响应状态') }}:', response.status);
+        console.log('{{ _('响应URL') }}:', response.url);
 
         if (response.redirected) {
-            alert('请求已重定向，请检查控制台查看详细信息。');
-            console.log('重定向到:', response.url);
+            alert('{{ _('请求已重定向，请检查控制台查看详细信息。') }}');
+            console.log('{{ _('重定向到') }}:', response.url);
         } else {
             return response.text().then(text => {
-                console.log('响应内容:', text);
-                alert('测试完成，请查看控制台。');
+                console.log('{{ _('响应内容') }}:', text);
+                alert('{{ _('测试完成，请查看控制台。') }}');
             });
         }
     })
     .catch(error => {
-        console.error('请求失败:', error);
-        alert('测试失败: ' + error.message);
+        console.error('{{ _('请求失败') }}:', error);
+        alert('{{ _('测试失败') }}: ' + error.message);
     });
 }
 
-// 添加键盘快捷键 Ctrl+Shift+C 清空日志（仅开发用）
+// {{ _('添加键盘快捷键 Ctrl+Shift+C 清空日志（仅开发用）') }}
 document.addEventListener('keydown', function(e) {
     if (e.ctrlKey && e.shiftKey && e.key === 'C') {
-        if (confirm('使用快捷键清空日志？')) {
+        if (confirm('{{ _('使用快捷键清空日志？') }}')) {
             simpleClearLogs();
         }
     }
 });
 
-// 页面加载时检查日志数量
+// {{ _('页面加载时检查日志数量') }}
 document.addEventListener('DOMContentLoaded', function() {
     const totalLogs = {{ pagination.total }};
 
-    // 如果日志数量很多，显示提示
     if (totalLogs > 1000) {
         const alertDiv = document.createElement('div');
         alertDiv.className = 'alert alert-info mb-3';
-        alertDiv.innerHTML = `
-            <i class="bi bi-info-circle me-2"></i>
-            当前有 <strong>${totalLogs.toLocaleString()}</strong> 条日志记录。
-            ${totalLogs > 5000 ? '建议定期清理以保持系统性能。' : ''}
-        `;
+        alertDiv.innerHTML = `{{ _('<i class="bi bi-info-circle me-2"></i> 当前有 <strong>%(total)s</strong> 条日志记录。', total='${totalLogs.toLocaleString()}') }}`;
         document.querySelector('.row.mb-4').before(alertDiv);
     }
 });

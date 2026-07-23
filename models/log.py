@@ -15,6 +15,7 @@ class Log(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     player_name = db.Column(db.String(64), index=True)  # 新增：玩家名称
     player_uuid = db.Column(db.String(36), index=True)  # 新增：玩家UUID
+    server_id = db.Column(db.String(36), index=True)  # 新增：服务器ID，用于按服务器筛选
     details = db.Column(db.Text)  # 额外的JSON数据
     created_at = db.Column(db.DateTime, default=now_utc, index=True)  # 修改这里
 
@@ -35,7 +36,7 @@ class Log(db.Model):
         }
 
     @classmethod
-    def create_login_log(cls, player_name, player_uuid, player_ip, allowed, check_type=None, user_id=None):
+    def create_login_log(cls, player_name, player_uuid, player_ip, allowed, check_type=None, server_id=None, user_id=None):
         """创建登录日志"""
         # 判断是否为本地用户登录
         is_local = check_type == 'host'
@@ -48,8 +49,9 @@ class Log(db.Model):
             ip_address=player_ip,
             player_name=player_name,
             player_uuid=player_uuid,
+            server_id=server_id,
             user_id=user_id,
-            details=f'player_name: {player_name}, player_uuid: {player_uuid}, allowed: {allowed}, check_type: {check_type}'
+            details=f'player_name: {player_name}, player_uuid: {player_uuid}, allowed: {allowed}, check_type: {check_type}, server_id: {server_id}'
         )
         db.session.add(log)
         db.session.commit()
@@ -75,7 +77,10 @@ class Log(db.Model):
         else:
             return None
 
-        # 获取最近一次登录记录
+        # 排除登出事件，只获取登入记录
+        query = query.filter(~cls.details.like('%action: logout%'))
+
+        # 获取最近一次登入记录
         last_login = query.order_by(cls.created_at.desc()).first()
 
         if last_login:

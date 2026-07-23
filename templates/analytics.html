@@ -1,0 +1,824 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ _('用户分析') }}{% endblock %}
+{% block page_title %}{{ _('用户分析') }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .player-card {
+        border-radius: 10px;
+        transition: all 0.15s ease;
+        cursor: pointer;
+    }
+    .player-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .player-card.active {
+        border-color: #3b82f6 !important;
+        background: #eff6ff;
+    }
+    .stat-mini {
+        font-size: 0.8rem;
+        padding: 6px 10px;
+        border-radius: 8px;
+        background: #f8fafc;
+    }
+    .stat-mini .val {
+        font-size: 1.1rem;
+        font-weight: 700;
+    }
+    .session-row {
+        border-left: 3px solid #e2e8f0;
+        padding: 8px 12px;
+        margin-bottom: 6px;
+        border-radius: 0 8px 8px 0;
+        background: #fafbfc;
+    }
+    .session-row:hover { background: #f1f5f9; }
+    .session-row.logged-in { border-left-color: #10b981; }
+    .ip-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 3px 8px;
+        border-radius: 4px;
+        font-size: 0.78rem;
+        background: #f1f5f9;
+    }
+    .chart-box {
+        position: relative;
+        height: 260px;
+    }
+    .timeline-row {
+        position: relative;
+        height: 28px;
+        margin-bottom: 6px;
+        background: #f8fafc;
+        border-radius: 4px;
+    }
+    .timeline-label {
+        position: absolute;
+        left: 0;
+        top: 0;
+        height: 100%;
+        width: 100px;
+        padding: 0 6px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        color: #475569;
+        z-index: 2;
+        white-space: nowrap;
+        overflow: hidden;
+        line-height: 28px;
+        --scroll-dist: 0px;
+        box-sizing: border-box;
+        background: linear-gradient(to right, #f8fafc 88px, transparent);
+    }
+    .timeline-label-inner {
+        display: inline-block;
+        white-space: nowrap;
+    }
+    .timeline-label.scroll-label .timeline-label-inner {
+        animation: scrollLabel 4s ease-in-out infinite;
+    }
+    @keyframes scrollLabel {
+        0%, 15% { transform: translateX(0); }
+        40%, 60% { transform: translateX(var(--scroll-dist)); }
+        85%, 100% { transform: translateX(0); }
+    }
+    .timeline-track {
+        position: absolute;
+        left: 104px;
+        right: 0;
+        top: 0;
+        height: 100%;
+        background: #f1f5f9;
+        border-radius: 4px;
+    }
+    .timeline-bar {
+        position: absolute;
+        top: 3px;
+        height: 22px;
+        border-radius: 3px;
+        cursor: pointer;
+        transition: opacity 0.1s;
+    }
+    .timeline-bar:hover {
+        opacity: 0.85;
+        z-index: 3;
+    }
+    .timeline-ticks {
+        position: relative;
+        height: 20px;
+        margin-left: 104px;
+        margin-bottom: 2px;
+    }
+    .timeline-tick {
+        position: absolute;
+        font-size: 0.65rem;
+        color: #94a3b8;
+        transform: translateX(-50%);
+        white-space: nowrap;
+    }
+    .timeline-tooltip {
+        display: none;
+        position: fixed;
+        background: #1e293b;
+        color: #fff;
+        padding: 8px 12px;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        z-index: 9999;
+        pointer-events: none;
+        white-space: nowrap;
+        line-height: 1.6;
+    }
+    .guest-tag {
+        font-size: 0.7rem;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: #fef3c7;
+        color: #92400e;
+    }
+    .wl-tag {
+        font-size: 0.7rem;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: #dbeafe;
+        color: #1e40af;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="row g-3 mb-3">
+    <!-- 登陆趋势图 -->
+    <div class="col-xl-12">
+        <div class="card shadow-sm">
+            <div class="card-header bg-transparent d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <h6 class="mb-0"><i class="bi bi-graph-up me-2"></i>{{ _('登陆趋势') }}</h6>
+                <form class="d-flex gap-2 flex-wrap" method="GET" id="trendForm">
+                    {% if player_name %}<input type="hidden" name="player_name" value="{{ player_name }}">{% endif %}
+                    {% if player_uuid %}<input type="hidden" name="player_uuid" value="{{ player_uuid }}">{% endif %}
+                    <div class="btn-group btn-group-sm trend-range-btns">
+                        <button type="button" class="btn btn-outline-secondary {% if trend_days == 1 %}active{% endif %}" data-days="1">{{ _('1天') }}</button>
+                        <button type="button" class="btn btn-outline-secondary {% if trend_days == 3 %}active{% endif %}" data-days="3">{{ _('3天') }}</button>
+                        <button type="button" class="btn btn-outline-secondary {% if trend_days == 7 %}active{% endif %}" data-days="7">{{ _('7天') }}</button>
+                        <button type="button" class="btn btn-outline-secondary {% if trend_days == 30 %}active{% endif %}" data-days="30">{{ _('30天') }}</button>
+                    </div>
+                    <input type="hidden" name="trend_days" value="{{ trend_days }}" id="trendDaysInput">
+                    {% if not is_player_view %}
+                    <select class="form-select form-select-sm" name="trend_type" style="width:auto;">
+                        <option value="all" {% if trend_type == 'all' %}selected{% endif %}>{{ _('全部用户') }}</option>
+                        <option value="whitelist" {% if trend_type == 'whitelist' %}selected{% endif %}>{{ _('白名单用户') }}</option>
+                        <option value="guest" {% if trend_type == 'guest' %}selected{% endif %}>{{ _('游客') }}</option>
+                    </select>
+                    <select class="form-select form-select-sm" name="trend_server_id" style="width:auto;">
+                        <option value="">{{ _('所有服务器') }}</option>
+                        {% for sid in all_server_ids %}
+                        <option value="{{ sid }}" {% if trend_server_id == sid %}selected{% endif %}>{{ sid }}</option>
+                        {% endfor %}
+                    </select>
+                    {% else %}
+                    <span class="badge bg-info">{{ player_name }}</span>
+                    {% endif %}
+                    <button type="submit" class="btn btn-sm btn-primary">{{ _('刷新') }}</button>
+                </form>
+            </div>
+            <div class="card-body">
+                <div class="chart-box">
+                    <canvas id="trendChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <!-- 左侧：玩家列表 -->
+    <div class="col-xl-3">
+        <div class="card shadow-sm">
+            <div class="card-header bg-transparent">
+                <h6 class="mb-0"><i class="bi bi-people me-2"></i>{{ _('玩家列表') }}</h6>
+            </div>
+            <div class="card-body p-2">
+                <!-- 总览入口 -->
+                <div class="px-2 pb-2">
+                    <a href="?view=overview{% if overview %}{% for sid in overview.all_overview_servers %}&os={{ sid }}{% endfor %}{% endif %}" class="player-card card border mb-2 p-2 text-decoration-none {% if not player_name and view == 'overview' %}active{% endif %}" style="display:block;">
+                        <div class="d-flex align-items-center gap-2">
+                            <i class="bi bi-bar-chart-fill text-primary"></i>
+                            <strong class="small">{{ _('服务器总览') }}</strong>
+                        </div>
+                    </a>
+                </div>
+                <div class="px-2 pb-2">
+                    <input type="text" class="form-control form-control-sm" id="playerSearch" placeholder="{{ _('搜索玩家名称...') }}" autocomplete="off">
+                </div>
+                <div style="max-height:460px;overflow-y:auto;" id="playerListContainer">
+                <div class="px-2 mb-2 wl-section">
+                    <small class="text-muted fw-bold">{{ _('白名单用户') }} (<span class="wl-count">{{ whitelist_players|length }}</span>)</small>
+                </div>
+                {% for p in whitelist_players %}
+                <div class="player-card card border mb-1 p-2 {% if player_name == p.name %}active{% endif %}"
+                     onclick="location.href='?player_name={{ p.name }}&player_uuid={{ p.uuid or '' }}&trend_type={{ trend_type }}&trend_server_id={{ trend_server_id }}&trend_days={{ trend_days }}'">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <strong class="small">{{ p.name }}</strong>
+                        <span class="wl-tag">WL</span>
+                    </div>
+                    {% if p.uuid %}<small class="text-muted" style="font-size:0.7rem;">{{ p.uuid[:8] }}...</small>{% endif %}
+                </div>
+                {% endfor %}
+
+                {% if guest_players %}
+                <div class="px-2 mb-2 mt-3 guest-section">
+                    <small class="text-muted fw-bold">{{ _('游客') }} (<span class="guest-count">{{ guest_players|length }}</span>)</small>
+                </div>
+                {% for p in guest_players %}
+                <div class="player-card card border mb-1 p-2 {% if player_name == p.name %}active{% endif %}"
+                     onclick="location.href='?player_name={{ p.name }}&player_uuid={{ p.uuid or '' }}&trend_type={{ trend_type }}&trend_server_id={{ trend_server_id }}&trend_days={{ trend_days }}'">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <strong class="small">{{ p.name }}</strong>
+                        <span class="guest-tag">{{ _('游客') }}</span>
+                    </div>
+                    {% if p.uuid %}<small class="text-muted" style="font-size:0.7rem;">{{ p.uuid[:8] }}...</small>{% endif %}
+                </div>
+                {% endfor %}
+                {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧：详情 -->
+    <div class="col-xl-9">
+        {% if stats %}
+        <!-- 统计概览 -->
+        <div class="row g-2 mb-3">
+            <div class="col-md-3">
+                <div class="stat-mini text-center">
+                    <div class="text-muted">{{ _('总会话') }}</div>
+                    <div class="val text-primary">{{ stats.total_sessions }}</div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-mini text-center">
+                    <div class="text-muted">{{ _('总在线时长') }}</div>
+                    <div class="val text-success">
+                        {% if stats.total_duration >= 3600 %}
+                        {{ (stats.total_duration // 3600) }}h {{ ((stats.total_duration % 3600) // 60) }}m
+                        {% else %}
+                        {{ (stats.total_duration // 60) }}m {{ (stats.total_duration % 60) }}s
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-mini text-center">
+                    <div class="text-muted">{{ _('平均时长') }}</div>
+                    <div class="val text-warning">
+                        {% if stats.avg_duration >= 3600 %}
+                        {{ (stats.avg_duration // 3600)|int }}h {{ ((stats.avg_duration % 3600) // 60)|int }}m
+                        {% else %}
+                        {{ (stats.avg_duration // 60)|int }}m {{ (stats.avg_duration % 60)|int }}s
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-mini text-center">
+                    <div class="text-muted">{{ _('状态') }}</div>
+                    <div class="val">
+                        {% if sessions and sessions[0].logout_time == None %}
+                        <span class="text-success">{{ _('在线中') }}</span>
+                        {% else %}
+                        <span class="text-muted">{{ _('离线') }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 在线时间图 -->
+        <div class="row g-3 mb-3">
+            <div class="col-md-12">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-transparent">
+                        <h6 class="mb-0"><i class="bi bi-bar-chart-steps me-2"></i>{{ _('在线时间') }}</h6>
+                    </div>
+                    <div class="card-body" id="timelineCardBody">
+                        <div id="timelineContainer" style="position:relative;min-height:120px;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row g-3 mb-3">
+            <div class="col-md-8">
+                <div class="card shadow-sm">
+                    <div class="card-header bg-transparent"><h6 class="mb-0"><i class="bi bi-clock-history me-2"></i>{{ _('在线时间分布（按小时）') }}</h6></div>
+                    <div class="card-body">
+                        <div class="chart-box" style="height:220px;">
+                            <canvas id="hourlyChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-transparent"><h6 class="mb-0"><i class="bi bi-globe me-2"></i>{{ _('IP 排行') }}</h6></div>
+                    <div class="card-body p-2" style="max-height:240px;overflow-y:auto;">
+                        {% if stats.ip_ranking %}
+                        {% for ip, cnt in stats.ip_ranking %}
+                        <div class="d-flex justify-content-between align-items-center p-2 border-bottom">
+                            <div>
+                                <code style="font-size:0.8rem;">{{ ip }}</code>
+                                {% if ip_geo.get(ip) %}
+                                <br><small class="text-muted">{{ ip_geo[ip].region }} {% if ip_geo[ip].isp %}| {{ ip_geo[ip].isp }}{% endif %}</small>
+                                {% endif %}
+                            </div>
+                            <span class="badge bg-primary">{{ cnt }}{{ _('次') }}</span>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <p class="text-muted text-center py-4">{{ _('暂无数据') }}</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 会话记录 -->
+        <div class="card shadow-sm">
+            <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-list-ul me-2"></i>{{ _('登入登出记录') }}</h6>
+            </div>
+            <div class="card-body p-2" style="max-height:400px;overflow-y:auto;">
+                {% if sessions %}
+                {% for s in sessions %}
+                <div class="session-row {% if s.logout_time == None %}logged-in{% endif %}">
+                    <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                        <div>
+                            <span class="badge bg-secondary me-1">{{ s.server_id or '-' }}</span>
+                            <i class="bi bi-box-arrow-in-right text-success me-1"></i>
+                            <small>{{ format_datetime(s.login_time) if s.login_time else '-' }}</small>
+                            {% if s.logout_time %}
+                            <i class="bi bi-box-arrow-right text-danger mx-1"></i>
+                            <small>{{ format_datetime(s.logout_time) if s.logout_time else '-' }}</small>
+                            {% else %}
+                            <span class="badge bg-success ms-1">{{ _('在线中') }}</span>
+                            {% endif %}
+                        </div>
+                        <div class="d-flex align-items-center gap-2">
+                            {% if s.duration %}
+                            <span class="badge bg-info">
+                                {% if s.duration >= 3600 %}{{ (s.duration // 3600) }}h {{ ((s.duration % 3600) // 60) }}m
+                                {% elif s.duration >= 60 %}{{ (s.duration // 60) }}m {{ (s.duration % 60) }}s
+                                {% else %}{{ s.duration }}s{% endif %}
+                            </span>
+                            {% endif %}
+                            <span class="ip-badge" title="{{ _('登入IP') }}">
+                                <i class="bi bi-box-arrow-in-right text-success"></i> {{ s.login_ip or '-' }}
+                            </span>
+                            {% if s.logout_ip and s.logout_ip != s.login_ip %}
+                            <span class="ip-badge" title="{{ _('登出IP') }}">
+                                <i class="bi bi-box-arrow-right text-danger"></i> {{ s.logout_ip }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+                {% else %}
+                <p class="text-muted text-center py-4">{{ _('选择玩家查看登入登出记录') }}</p>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+            {% if overview %}
+            <!-- 服务器筛选 -->
+            {% if overview.all_overview_servers %}
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-transparent py-2">
+                    <h6 class="mb-0 small"><i class="bi bi-funnel me-2"></i>{{ _('筛选服务器') }}</h6>
+                </div>
+                <div class="card-body p-2">
+                    <form method="GET" id="overviewFilter">
+                        <input type="hidden" name="view" value="overview">
+                        <div class="mb-1">
+                            <a href="javascript:void(0)" onclick="var cs=document.querySelectorAll('#overviewFilter input[type=checkbox]');cs.forEach(c=>c.checked=true);this.closest('form').submit()" class="text-decoration-none small me-2">{{ _('全选') }}</a>
+                            <a href="javascript:void(0)" onclick="var cs=document.querySelectorAll('#overviewFilter input[type=checkbox]');cs.forEach(c=>c.checked=false);this.closest('form').submit()" class="text-decoration-none small me-2">{{ _('取消') }}</a>
+                            <a href="javascript:void(0)" onclick="var cs=document.querySelectorAll('#overviewFilter input[type=checkbox]');cs.forEach(c=>c.checked=true);this.closest('form').submit()" class="text-decoration-none small">{{ _('重置') }}</a>
+                        </div>
+                        <div class="d-flex flex-wrap gap-2">
+                            {% for sid in overview.all_overview_servers %}
+                            <label class="form-check form-check-inline mb-0" style="font-size:0.78rem;">
+                                <input class="form-check-input" type="checkbox" name="os" value="{{ sid }}"
+                                       {% if sid in overview.overview_servers or not overview.overview_servers %}checked{% endif %}
+                                       onchange="this.form.submit()">
+                                {{ sid }}
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- 服务器总览 -->
+            <div class="row g-2 mb-3">
+                <div class="col-md-4">
+                    <div class="stat-mini text-center">
+                        <div class="text-muted">{{ _('全服总在线时长') }}</div>
+                        <div class="val text-primary">
+                            {% if overview.total_online >= 3600 %}
+                            {{ (overview.total_online // 3600) }}h {{ ((overview.total_online % 3600) // 60) }}m
+                            {% else %}
+                            {{ (overview.total_online // 60) }}m
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-mini text-center">
+                        <div class="text-muted">{{ _('最大同时在线') }}</div>
+                        <div class="val text-success">{{ overview.max_concurrent }}</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-mini text-center">
+                        <div class="text-muted">{{ _('活跃玩家数') }}</div>
+                        <div class="val text-info">{{ overview.total_players }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-2 mb-3">
+                <div class="col-md-4">
+                    <div class="stat-mini text-center">
+                        <div class="text-muted">{{ _('单次最长在线') }}</div>
+                        <div class="val text-warning">
+                            {% if overview.max_single >= 3600 %}
+                            {{ (overview.max_single // 3600) }}h {{ ((overview.max_single % 3600) // 60) }}m
+                            {% else %}
+                            {{ (overview.max_single // 60) }}m
+                            {% endif %}
+                        </div>
+                        <small class="text-muted">{{ overview.max_single_player }} @ {{ overview.max_single_server }}</small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-mini text-center">
+                        <div class="text-muted">{{ _('最长累计在线') }}</div>
+                        <div class="val text-primary">{{ overview.top_duration_player or '-' }}</div>
+                        <small class="text-muted">
+                            {% if overview.top_duration_value >= 3600 %}
+                            {{ (overview.top_duration_value // 3600) }}h {{ ((overview.top_duration_value % 3600) // 60) }}m
+                            {% else %}
+                            {{ (overview.top_duration_value // 60) }}m
+                            {% endif %}
+                        </small>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="stat-mini text-center">
+                        <div class="text-muted">{{ _('登陆最多') }}</div>
+                        <div class="val text-success">{{ overview.top_login_player or '-' }}</div>
+                        <small class="text-muted">{{ overview.top_login_value }} {{ _('次') }}</small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 玩家在线排行 -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0"><i class="bi bi-trophy me-2"></i>{{ _('玩家在线排行') }}</h6>
+                </div>
+                <div class="card-body p-2">
+                    {% if overview.player_ranking %}
+                    <table class="table table-sm table-hover mb-0">
+                        <thead>
+                            <tr><th>#</th><th>{{ _('玩家') }}</th><th>{{ _('总在线') }}</th><th>{{ _('登入次数') }}</th><th>{{ _('单次最长') }}</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for name, data in overview.player_ranking %}
+                            <tr>
+                                <td class="text-muted">{{ loop.index }}</td>
+                                <td>
+                                    <a href="?player_name={{ name }}{% for sid in overview.overview_servers %}&os={{ sid }}{% endfor %}&trend_days={{ trend_days }}">
+                                        <strong>{{ name }}</strong>
+                                    </a>
+                                </td>
+                                <td>
+                                    {% if data.total_duration >= 3600 %}
+                                    {{ (data.total_duration // 3600) }}h {{ ((data.total_duration % 3600) // 60) }}m
+                                    {% else %}
+                                    {{ (data.total_duration // 60) }}m
+                                    {% endif %}
+                                </td>
+                                <td>{{ data.login_count }}</td>
+                                <td>
+                                    {% if data.max_single >= 3600 %}
+                                    {{ (data.max_single // 3600) }}h {{ ((data.max_single % 3600) // 60) }}m
+                                    {% elif data.max_single >= 60 %}
+                                    {{ (data.max_single // 60) }}m
+                                    {% else %}
+                                    {{ data.max_single }}s
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p class="text-muted text-center py-3 small">{{ _('暂无数据') }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <div class="card shadow-sm">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-person-badge display-1 text-muted mb-3"></i>
+                    <h5 class="text-muted">{{ _('选择左侧玩家查看详细分析') }}</h5>
+                    <p class="text-muted small">{{ _('显示在线时长、登入登出记录、IP地理位置等信息') }}</p>
+                </div>
+            </div>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// 登陆趋势图
+(function(){
+    const ctx = document.getElementById('trendChart');
+    if (!ctx) return;
+    const data = {{ login_trend | tojson }};
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: Object.keys(data),
+            datasets: [{
+                label: '{{ _('登陆次数') }}',
+                data: Object.values(data),
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59,130,246,0.08)',
+                fill: true,
+                tension: 0.4,
+                borderWidth: 2.5,
+                pointRadius: 4,
+                pointHoverRadius: 6,
+                pointBackgroundColor: '#3b82f6',
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: { display: false },
+                tooltip: { backgroundColor: '#1e293b', cornerRadius: 8, padding: 12 }
+            },
+            scales: {
+                x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f1f5f9' },
+                    ticks: { stepSize: 1, font: { size: 11 },
+                        callback: function(v) { return v % 1 === 0 ? v : ''; }
+                    }
+                }
+            }
+        }
+    });
+})();
+
+// 在线时间图 - 纯HTML/CSS时间线
+{% if stats and gantt_data %}
+(function(){
+    var container = document.getElementById('timelineContainer');
+    if (!container) return;
+    var rawData = {{ gantt_data | tojson }};
+    if (!rawData.length) return;
+    var servers = {};
+    rawData.forEach(function(s) {
+        var sid = s.server || 'default';
+        if (!servers[sid]) servers[sid] = [];
+        servers[sid].push(s);
+    });
+    var serverNames = Object.keys(servers);
+    var PAD = 600000;
+
+    function fmtTime(ts) {
+        var d = new Date(ts);
+        return (d.getMonth()+1) + '/' + d.getDate() + ' ' +
+               String(d.getHours()).padStart(2,'0') + ':' +
+               String(d.getMinutes()).padStart(2,'0');
+    }
+
+    function fmtDuration(sec) {
+        if (sec === null || sec === undefined) return '{{ _('在线中') }}';
+        if (sec >= 3600) return Math.floor(sec/3600) + 'h ' + Math.floor((sec%3600)/60) + 'm';
+        if (sec >= 60) return Math.floor(sec/60) + 'm ' + (sec%60) + 's';
+        return sec + 's';
+    }
+
+    function getBarColor(s) {
+        if (s.duration === null || s.duration === undefined) return 'rgba(16,185,129,0.8)';
+        if (s.duration < 600) return 'rgba(239,68,68,0.7)';
+        if (s.duration < 3600) return 'rgba(245,158,11,0.7)';
+        return 'rgba(59,130,246,0.75)';
+    }
+
+    var tooltip = document.createElement('div');
+    tooltip.className = 'timeline-tooltip';
+    document.body.appendChild(tooltip);
+
+    function buildTimeline(days) {
+        var now = Date.now();
+        var rangeMin, rangeMax;
+        if (days === 'all') { rangeMin = -Infinity; rangeMax = Infinity; }
+        else { rangeMin = now - days * 86400000; rangeMax = Infinity; }
+
+        var visibleMin = Infinity, visibleMax = -Infinity, visibleCount = 0;
+        serverNames.forEach(function(sid) {
+            servers[sid].forEach(function(s) {
+                var start = new Date(s.start).getTime();
+                var end = new Date(s.end).getTime();
+                if (end >= rangeMin && start <= rangeMax) {
+                    visibleCount++;
+                    if (start < visibleMin) visibleMin = start;
+                    if (end > visibleMax) visibleMax = end;
+                }
+            });
+        });
+
+        if (visibleCount === 0) {
+            container.innerHTML = '<p class="text-muted text-center py-3 small">{{ _('该时间范围内无在线记录') }}</p>';
+            return;
+        }
+
+        var displayMin = visibleMin - PAD;
+        var displayMax = visibleMax + PAD;
+        var totalMs = displayMax - displayMin;
+        container.innerHTML = '';
+
+        var ticksDiv = document.createElement('div');
+        ticksDiv.className = 'timeline-ticks';
+        for (var i = 0; i <= 6; i++) {
+            var tickTs = displayMin + (totalMs * i / 6);
+            var tick = document.createElement('span');
+            tick.className = 'timeline-tick';
+            tick.style.left = (i / 6 * 100) + '%';
+            tick.textContent = fmtTime(tickTs);
+            ticksDiv.appendChild(tick);
+        }
+        container.appendChild(ticksDiv);
+
+        serverNames.forEach(function(sid) {
+            var sessions = servers[sid].filter(function(s) {
+                var start = new Date(s.start).getTime();
+                var end = new Date(s.end).getTime();
+                return end >= displayMin && start <= displayMax;
+            });
+            if (!sessions.length) return;
+
+            var row = document.createElement('div');
+            row.className = 'timeline-row';
+            var label = document.createElement('span');
+            label.className = 'timeline-label';
+            label.title = sid;
+            var labelInner = document.createElement('span');
+            labelInner.className = 'timeline-label-inner';
+            labelInner.textContent = sid;
+            label.appendChild(labelInner);
+            row.appendChild(label);
+            requestAnimationFrame(function() {
+                if (labelInner.offsetWidth > label.clientWidth - 12) {
+                    label.style.setProperty('--scroll-dist', (label.clientWidth - labelInner.offsetWidth - 12) + 'px');
+                    label.classList.add('scroll-label');
+                }
+            });
+
+            var track = document.createElement('div');
+            track.className = 'timeline-track';
+            sessions.forEach(function(s) {
+                var startTs = new Date(s.start).getTime();
+                var endTs = new Date(s.end).getTime();
+                var leftPct = ((startTs - displayMin) / totalMs) * 100;
+                var widthPct = ((endTs - startTs) / totalMs) * 100;
+                if (widthPct < 0.3) widthPct = 0.3;
+
+                var bar = document.createElement('div');
+                bar.className = 'timeline-bar';
+                bar.style.left = Math.max(0, leftPct) + '%';
+                bar.style.width = Math.min(widthPct, 100 - Math.max(0, leftPct)) + '%';
+                bar.style.backgroundColor = getBarColor(s);
+
+                (function(session) {
+                    bar.addEventListener('mouseenter', function(e) {
+                        tooltip.style.display = 'block';
+                        tooltip.innerHTML =
+                            '{{ _('登入') }}: ' + fmtTime(new Date(session.start)) + '<br>' +
+                            '{{ _('登出') }}: ' + (session.duration ? fmtTime(new Date(session.end)) : '{{ _('在线中') }}') + '<br>' +
+                            '{{ _('时长') }}: ' + fmtDuration(session.duration) + '<br>' +
+                            'IP: ' + (session.ip || '-') + ' | ' + (session.server || '');
+                    });
+                    bar.addEventListener('mousemove', function(e) {
+                        tooltip.style.left = (e.clientX + 14) + 'px';
+                        tooltip.style.top = (e.clientY - 10) + 'px';
+                    });
+                    bar.addEventListener('mouseleave', function() { tooltip.style.display = 'none'; });
+                })(s);
+                track.appendChild(bar);
+            });
+            row.appendChild(track);
+            container.appendChild(row);
+        });
+    }
+
+    buildTimeline({{ trend_days }} || 7);
+})();
+{% endif %}
+
+// 小时分布图
+{% if stats %}
+(function(){
+    const ctx = document.getElementById('hourlyChart');
+    if (!ctx) return;
+    const dist = {{ stats.hourly_distribution | tojson }};
+    const hours = Array.from({length:24}, (_,i) => String(i));
+    const values = hours.map(h => dist[h] || 0);
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: hours.map(h => h + ':00'),
+            datasets: [{
+                label: '{{ _('会话数') }}',
+                data: values,
+                backgroundColor: values.map(v => v > 0 ? '#3b82f6' : '#e2e8f0'),
+                borderRadius: 4,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: { legend: { display: false } },
+            scales: {
+                x: { grid: { display: false }, ticks: { font: { size: 9 }, maxTicksLimit: 12 } },
+                y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { stepSize: 1, font: { size: 10 }, callback: function(v) { return v % 1 === 0 ? v : ''; } } }
+            }
+        }
+    });
+})();
+{% endif %}
+</script>
+
+<script>
+// 趋势图时间范围按钮
+document.querySelectorAll('.trend-range-btns .btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        document.getElementById('trendDaysInput').value = this.dataset.days;
+        document.getElementById('trendForm').submit();
+    });
+});
+
+// 玩家搜索过滤
+(function() {
+    var input = document.getElementById('playerSearch');
+    if (!input) return;
+    var cards = document.querySelectorAll('#playerListContainer .player-card');
+    var wlSection = document.querySelector('#playerListContainer .wl-section');
+    var guestSection = document.querySelector('#playerListContainer .guest-section');
+
+    input.addEventListener('input', function() {
+        var term = this.value.toLowerCase().trim();
+        cards.forEach(function(card) {
+            var name = (card.textContent || '').toLowerCase();
+            card.style.display = (!term || name.indexOf(term) !== -1) ? '' : 'none';
+        });
+        if (wlSection) {
+            var hasWl = false, el = wlSection.nextElementSibling;
+            while (el && !el.classList.contains('guest-section')) {
+                if (el.classList.contains('player-card') && el.style.display !== 'none') hasWl = true;
+                el = el.nextElementSibling;
+            }
+            wlSection.style.display = hasWl || !term ? '' : 'none';
+        }
+        if (guestSection) {
+            var hasGuest = false, el = guestSection.nextElementSibling;
+            while (el && el.classList.contains('player-card')) {
+                if (el.style.display !== 'none') hasGuest = true;
+                el = el.nextElementSibling;
+            }
+            guestSection.style.display = hasGuest || !term ? '' : 'none';
+        }
+    });
+})();
+</script>
+{% endblock %}

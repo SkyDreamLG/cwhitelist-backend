@@ -38,8 +38,9 @@ if show_config_window():
 else:
     SHOW_CONFIG = False
 
-from flask import Flask, g, request, jsonify
+from flask import Flask, g, request, jsonify, session
 from flask_login import LoginManager
+from flask_babel import Babel, _
 
 # 创建应用实例
 app = Flask(__name__)
@@ -62,10 +63,26 @@ from flask_migrate import Migrate
 
 migrate = Migrate(app, db)
 
+# 初始化Babel
+babel = Babel(app)
+
+
+def get_locale():
+    """获取当前语言设置"""
+    # 优先从session获取语言
+    lang = session.get('lang', None)
+    if lang and lang in app.config.get('LANGUAGES', {}):
+        return lang
+    # 其次从浏览器请求头获取
+    return request.accept_languages.best_match(app.config.get('LANGUAGES', {}).keys())
+
+
+babel.init_app(app, locale_selector=get_locale)
+
 # 初始化登录管理器
 login_manager = LoginManager(app)
 login_manager.login_view = 'auth.login'
-login_manager.login_message = '请先登录以访问此页面'
+login_manager.login_message = _('请先登录以访问此页面')
 
 
 # 用户加载函数
@@ -91,6 +108,18 @@ def inject_timezone():
         common_timezones=get_common_timezones(),
         current_timezone=str(get_app_timezone()),
         now_utc=now_utc
+    )
+
+
+# 注册上下文处理器，使语言信息在模板中可用
+@app.context_processor
+def inject_lang():
+    """注入语言相关信息到模板"""
+    current_lang = get_locale()
+    return dict(
+        get_locale=get_locale,
+        current_lang=current_lang,
+        LANGUAGES=app.config.get('LANGUAGES', {}),
     )
 
 

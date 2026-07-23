@@ -1,0 +1,2167 @@
+# Translations template for PROJECT.
+# Copyright (C) 2026 ORGANIZATION
+# This file is distributed under the same license as the PROJECT project.
+# FIRST AUTHOR <EMAIL@ADDRESS>, 2026.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PROJECT VERSION\n"
+"Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
+"POT-Creation-Date: 2026-07-23 16:50+0800\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
+
+#: app.py:85
+msgid "请先登录以访问此页面"
+msgstr ""
+
+#: models/token.py:105
+msgid "读取"
+msgstr ""
+
+#: models/token.py:107
+msgid "写入"
+msgstr ""
+
+#: models/token.py:109 templates/tokens.html:261 templates/whitelist.html:339
+msgid "删除"
+msgstr ""
+
+#: models/token.py:111
+msgid "管理"
+msgstr ""
+
+#: models/token.py:112
+msgid "无"
+msgstr ""
+
+#: routes/auth.py:24
+msgid "请输入用户名和密码"
+msgstr ""
+
+#: routes/auth.py:44
+msgid "用户名或密码错误"
+msgstr ""
+
+#: routes/auth.py:60
+msgid "账户已被禁用，请联系管理员"
+msgstr ""
+
+#: routes/auth.py:101
+msgid "您已成功退出登录"
+msgstr ""
+
+#: routes/web.py:273
+msgid "请填写类型和值"
+msgstr ""
+
+#: routes/web.py:277 routes/web.py:908
+msgid "请填写服务器ID"
+msgstr ""
+
+#: routes/web.py:281
+msgid "类型必须为: name, uuid 或 ip"
+msgstr ""
+
+#: routes/web.py:292
+msgid "条目已存在"
+msgstr ""
+
+#: routes/web.py:312
+#, python-format
+msgid "过期时间格式错误: %(error)s"
+msgstr ""
+
+#: routes/web.py:330
+msgid "白名单条目添加成功"
+msgstr ""
+
+#: routes/web.py:340 routes/web.py:369
+msgid "条目不存在"
+msgstr ""
+
+#: routes/web.py:358 routes/web.py:1450 templates/tokens.html:252
+#: templates/whitelist.html:331
+msgid "启用"
+msgstr ""
+
+#: routes/web.py:358 routes/web.py:1450 templates/auth/profile.html:35
+#: templates/dashboard.html:79 templates/dashboard.html:285
+#: templates/tokens.html:239 templates/tokens.html:246
+#: templates/whitelist.html:320 templates/whitelist.html:329
+msgid "禁用"
+msgstr ""
+
+#: routes/web.py:359
+#, python-format
+msgid "条目已%(status)s"
+msgstr ""
+
+#: routes/web.py:386
+msgid "条目已删除"
+msgstr ""
+
+#: routes/web.py:515 routes/web.py:596 routes/web.py:633 routes/web.py:1071
+#: routes/web.py:1117 routes/web.py:1290 routes/web.py:1335 routes/web.py:1424
+#: routes/web.py:1460 routes/web.py:1505 templates/api_docs.html:512
+msgid "需要管理员权限"
+msgstr ""
+
+#: routes/web.py:527
+#, python-format
+msgid "测试模式：当前有 %(total)s 条日志，点击确认后将清空"
+msgstr ""
+
+#: routes/web.py:531
+msgid "没有日志可清空"
+msgstr ""
+
+#: routes/web.py:581
+#, python-format
+msgid "成功清空 %(deleted)s 条日志，剩余 %(remaining)s 条"
+msgstr ""
+
+#: routes/web.py:586
+#, python-format
+msgid "清空日志失败: %(error)s"
+msgstr ""
+
+#: routes/web.py:663
+msgid "设置已保存"
+msgstr ""
+
+#: routes/web.py:666
+#, python-format
+msgid "保存设置失败: %(error)s"
+msgstr ""
+
+#: routes/web.py:690
+msgid "系统已初始化，请登录"
+msgstr ""
+
+#: routes/web.py:705
+msgid "请填写管理员用户名"
+msgstr ""
+
+#: routes/web.py:707
+msgid "用户名至少3个字符"
+msgstr ""
+
+#: routes/web.py:710
+msgid "请填写管理员邮箱"
+msgstr ""
+
+#: routes/web.py:712
+msgid "邮箱格式不正确"
+msgstr ""
+
+#: routes/web.py:715
+msgid "请填写管理员密码"
+msgstr ""
+
+#: routes/web.py:717
+msgid "两次输入的密码不一致"
+msgstr ""
+
+#: routes/web.py:719
+msgid "密码长度至少8位"
+msgstr ""
+
+#: routes/web.py:722
+msgid "请填写站点标题"
+msgstr ""
+
+#: routes/web.py:854
+#, python-format
+msgid "系统初始化成功！管理员账户: %(username)s，请使用该账户登录。"
+msgstr ""
+
+#: routes/web.py:863
+#, python-format
+msgid "初始化失败: %(error)s"
+msgstr ""
+
+#: routes/web.py:865
+msgid " (可能是用户名或邮箱已存在)"
+msgstr ""
+
+#: routes/web.py:867
+msgid " (数据库表创建失败)"
+msgstr ""
+
+#: routes/web.py:881 routes/web.py:886
+msgid "请选择JSON文件"
+msgstr ""
+
+#: routes/web.py:890
+msgid "只支持JSON文件"
+msgstr ""
+
+#: routes/web.py:898
+msgid "JSON格式不正确，应该是一个数组"
+msgstr ""
+
+#: routes/web.py:978
+#, python-format
+msgid "导入完成: %(imported)s条成功导入，%(skipped)s条跳过，%(errors)s条错误"
+msgstr ""
+
+#: routes/web.py:981
+msgid "JSON文件格式不正确"
+msgstr ""
+
+#: routes/web.py:984
+#, python-format
+msgid "导入失败: %(error)s"
+msgstr ""
+
+#: routes/web.py:1051
+#, python-format
+msgid "导出失败: %(error)s"
+msgstr ""
+
+#: routes/web.py:1123
+msgid "请选择时区"
+msgstr ""
+
+#: routes/web.py:1131
+msgid "无效的时区"
+msgstr ""
+
+#: routes/web.py:1150
+#, python-format
+msgid "时区设置已保存为: %(timezone)s"
+msgstr ""
+
+#: routes/web.py:1154
+#, python-format
+msgid "保存失败: %(error)s"
+msgstr ""
+
+#: routes/web.py:1354
+msgid "有效期格式错误"
+msgstr ""
+
+#: routes/web.py:1358
+msgid "请输入Token名称"
+msgstr ""
+
+#: routes/web.py:1393 routes/web.py:1550 templates/tokens.html:221
+#: templates/whitelist.html:315
+msgid "永不过期"
+msgstr ""
+
+#: routes/web.py:1414
+#, python-format
+msgid "创建Token失败: %(error)s"
+msgstr ""
+
+#: routes/web.py:1431 routes/web.py:1467 routes/web.py:1512
+msgid "没有权限操作此Token"
+msgstr ""
+
+#: routes/web.py:1451
+#, python-format
+msgid "Token已%(status)s"
+msgstr ""
+
+#: routes/web.py:1486
+#, python-format
+msgid "Token [%(name)s] 已删除"
+msgstr ""
+
+#: routes/web.py:1556
+msgid "Token已刷新，请保存新Token"
+msgstr ""
+
+#: routes/web.py:1560
+#, python-format
+msgid "刷新Token失败: %(error)s"
+msgstr ""
+
+#: templates/about.html:3 templates/about.html:4 templates/layout.html:125
+msgid "关于系统"
+msgstr ""
+
+#: templates/about.html:9
+msgid "关于 CWhitelist"
+msgstr ""
+
+#: templates/about.html:17 templates/auth/login.html:80
+msgid "白名单管理系统"
+msgstr ""
+
+#: templates/about.html:18
+msgid "一个专为 Minecraft 服务器设计的现代化白名单管理系统。"
+msgstr ""
+
+#: templates/about.html:20
+msgid "主要特性"
+msgstr ""
+
+#: templates/about.html:22
+msgid "支持多种验证方式：玩家名称、UUID、IP地址"
+msgstr ""
+
+#: templates/about.html:23
+msgid "完整的 API 接口，支持与 Minecraft 模组集成"
+msgstr ""
+
+#: templates/about.html:24
+msgid "直观的网页管理界面"
+msgstr ""
+
+#: templates/about.html:25
+msgid "支持多服务器管理"
+msgstr ""
+
+#: templates/about.html:26
+msgid "详细的登录日志记录"
+msgstr ""
+
+#: templates/about.html:27
+msgid "灵活的权限管理系统"
+msgstr ""
+
+#: templates/about.html:30 templates/settings.html:102
+#: templates/settings.html:106
+msgid "系统信息"
+msgstr ""
+
+#: templates/about.html:32
+msgid "版本"
+msgstr ""
+
+#: templates/about.html:33
+msgid "开发语言"
+msgstr ""
+
+#: templates/about.html:34 templates/oobe.html:134
+msgid "数据库"
+msgstr ""
+
+#: templates/about.html:35
+msgid "前端框架"
+msgstr ""
+
+#: templates/about.html:39
+msgid "注意事项"
+msgstr ""
+
+#: templates/about.html:41
+msgid "此系统为开发版本，请勿在生产环境中使用默认密码。"
+msgstr ""
+
+#: templates/about.html:42
+msgid "建议在部署前修改所有默认设置。"
+msgstr ""
+
+#: templates/about.html:48 templates/auth/profile.html:62
+msgid "返回首页"
+msgstr ""
+
+#: templates/analytics.html:3 templates/analytics.html:4
+#: templates/layout.html:72
+msgid "用户分析"
+msgstr ""
+
+#: templates/analytics.html:161
+msgid "登陆趋势"
+msgstr ""
+
+#: templates/analytics.html:166
+msgid "1天"
+msgstr ""
+
+#: templates/analytics.html:167
+msgid "3天"
+msgstr ""
+
+#: templates/analytics.html:168
+msgid "7天"
+msgstr ""
+
+#: templates/analytics.html:169
+msgid "30天"
+msgstr ""
+
+#: templates/analytics.html:174
+msgid "全部用户"
+msgstr ""
+
+#: templates/analytics.html:175 templates/analytics.html:221
+#: templates/dashboard.html:327
+msgid "白名单用户"
+msgstr ""
+
+#: templates/analytics.html:176 templates/analytics.html:236
+#: templates/analytics.html:243 templates/dashboard.html:338
+msgid "游客"
+msgstr ""
+
+#: templates/analytics.html:179 templates/login_logs.html:39
+#: templates/whitelist.html:62
+msgid "所有服务器"
+msgstr ""
+
+#: templates/analytics.html:187
+msgid "刷新"
+msgstr ""
+
+#: templates/analytics.html:204
+msgid "玩家列表"
+msgstr ""
+
+#: templates/analytics.html:212
+msgid "服务器总览"
+msgstr ""
+
+#: templates/analytics.html:217
+msgid "搜索玩家名称..."
+msgstr ""
+
+#: templates/analytics.html:261
+msgid "总会话"
+msgstr ""
+
+#: templates/analytics.html:267
+msgid "总在线时长"
+msgstr ""
+
+#: templates/analytics.html:279
+msgid "平均时长"
+msgstr ""
+
+#: templates/analytics.html:291 templates/dashboard.html:272
+#: templates/tokens.html:187 templates/whitelist.html:255
+msgid "状态"
+msgstr ""
+
+#: templates/analytics.html:294 templates/analytics.html:369
+#: templates/analytics.html:624 templates/analytics.html:727
+msgid "在线中"
+msgstr ""
+
+#: templates/analytics.html:296
+msgid "离线"
+msgstr ""
+
+#: templates/analytics.html:308
+msgid "在线时间"
+msgstr ""
+
+#: templates/analytics.html:319
+msgid "在线时间分布（按小时）"
+msgstr ""
+
+#: templates/analytics.html:329
+msgid "IP 排行"
+msgstr ""
+
+#: templates/analytics.html:340 templates/analytics.html:487
+msgid "次"
+msgstr ""
+
+#: templates/analytics.html:344 templates/analytics.html:534
+msgid "暂无数据"
+msgstr ""
+
+#: templates/analytics.html:354
+msgid "登入登出记录"
+msgstr ""
+
+#: templates/analytics.html:380
+msgid "登入IP"
+msgstr ""
+
+#: templates/analytics.html:384
+msgid "登出IP"
+msgstr ""
+
+#: templates/analytics.html:393
+msgid "选择玩家查看登入登出记录"
+msgstr ""
+
+#: templates/analytics.html:403
+msgid "筛选服务器"
+msgstr ""
+
+#: templates/analytics.html:409
+msgid "全选"
+msgstr ""
+
+#: templates/analytics.html:410 templates/whitelist.html:170
+#: templates/whitelist.html:439
+msgid "取消"
+msgstr ""
+
+#: templates/analytics.html:411 templates/login_logs.html:70
+#: templates/logs.html:60 templates/settings_timezone.html:120
+#: templates/tokens.html:159 templates/whitelist.html:88
+msgid "重置"
+msgstr ""
+
+#: templates/analytics.html:432
+msgid "全服总在线时长"
+msgstr ""
+
+#: templates/analytics.html:444
+msgid "最大同时在线"
+msgstr ""
+
+#: templates/analytics.html:450
+msgid "活跃玩家数"
+msgstr ""
+
+#: templates/analytics.html:459
+msgid "单次最长在线"
+msgstr ""
+
+#: templates/analytics.html:472
+msgid "最长累计在线"
+msgstr ""
+
+#: templates/analytics.html:485
+msgid "登陆最多"
+msgstr ""
+
+#: templates/analytics.html:495
+msgid "玩家在线排行"
+msgstr ""
+
+#: templates/analytics.html:501 templates/login_logs.html:26
+msgid "玩家"
+msgstr ""
+
+#: templates/analytics.html:501
+msgid "总在线"
+msgstr ""
+
+#: templates/analytics.html:501
+msgid "登入次数"
+msgstr ""
+
+#: templates/analytics.html:501
+msgid "单次最长"
+msgstr ""
+
+#: templates/analytics.html:542
+msgid "选择左侧玩家查看详细分析"
+msgstr ""
+
+#: templates/analytics.html:543
+msgid "显示在线时长、登入登出记录、IP地理位置等信息"
+msgstr ""
+
+#: templates/analytics.html:566 templates/dashboard.html:350
+msgid "登陆次数"
+msgstr ""
+
+#: templates/analytics.html:661
+msgid "该时间范围内无在线记录"
+msgstr ""
+
+#: templates/analytics.html:726
+msgid "登入"
+msgstr ""
+
+#: templates/analytics.html:727 templates/login_logs.html:64
+#: templates/login_logs.html:111
+msgid "登出"
+msgstr ""
+
+#: templates/analytics.html:728
+msgid "时长"
+msgstr ""
+
+#: templates/analytics.html:761
+msgid "会话数"
+msgstr ""
+
+#: templates/api_docs.html:3 templates/api_docs.html:4
+#: templates/api_docs.html:9 templates/dashboard.html:239
+#: templates/layout.html:116
+msgid "API文档"
+msgstr ""
+
+#: templates/api_docs.html:12
+msgid "关于API"
+msgstr ""
+
+#: templates/api_docs.html:14
+msgid "API基地址"
+msgstr ""
+
+#: templates/api_docs.html:15
+msgid "除健康检查外，所有API都需要使用Token进行认证。"
+msgstr ""
+
+#: templates/api_docs.html:22
+msgid "左侧导航"
+msgstr ""
+
+#: templates/api_docs.html:26
+msgid "API目录"
+msgstr ""
+
+#: templates/api_docs.html:29 templates/api_docs.html:78
+msgid "认证方式"
+msgstr ""
+
+#: templates/api_docs.html:32 templates/api_docs.html:125
+#: templates/api_docs.html:129
+msgid "健康检查"
+msgstr ""
+
+#: templates/api_docs.html:35 templates/api_docs.html:166
+#: templates/api_docs.html:170
+msgid "同步白名单"
+msgstr ""
+
+#: templates/api_docs.html:38 templates/api_docs.html:248
+#: templates/api_docs.html:252 templates/whitelist.html:185
+msgid "添加白名单"
+msgstr ""
+
+#: templates/api_docs.html:41 templates/api_docs.html:328
+#: templates/api_docs.html:332
+msgid "删除白名单"
+msgstr ""
+
+#: templates/api_docs.html:44 templates/api_docs.html:397
+msgid "记录登入事件"
+msgstr ""
+
+#: templates/api_docs.html:47 templates/api_docs.html:453
+#: templates/api_docs.html:457
+msgid "记录登出事件"
+msgstr ""
+
+#: templates/api_docs.html:50 templates/dashboard.html:246
+#: templates/layout.html:105 templates/tokens.html:4
+msgid "Token管理"
+msgstr ""
+
+#: templates/api_docs.html:60
+msgid "获取Token"
+msgstr ""
+
+#: templates/api_docs.html:62
+msgid "需要在系统中创建Token才能调用API。"
+msgstr ""
+
+#: templates/api_docs.html:65 templates/tokens.html:156
+msgid "创建Token"
+msgstr ""
+
+#: templates/api_docs.html:69
+msgid "登录获取"
+msgstr ""
+
+#: templates/api_docs.html:76 templates/settings.html:33
+#: templates/settings_timezone.html:33 templates/tokens.html:68
+msgid "主要内容区"
+msgstr ""
+
+#: templates/api_docs.html:82
+msgid "API认证方式"
+msgstr ""
+
+#: templates/api_docs.html:88
+msgid "重要："
+msgstr ""
+
+#: templates/api_docs.html:88
+msgid "所有API（除了健康检查）都需要Token认证。"
+msgstr ""
+
+#: templates/api_docs.html:91
+msgid "Token权限说明："
+msgstr ""
+
+#: templates/api_docs.html:93 templates/tokens.html:113
+msgid "读取权限"
+msgstr ""
+
+#: templates/api_docs.html:93
+msgid "：允许调用GET接口（如/health, /whitelist/sync）"
+msgstr ""
+
+#: templates/api_docs.html:94 templates/tokens.html:122
+msgid "写入权限"
+msgstr ""
+
+#: templates/api_docs.html:94
+msgid "：允许调用POST接口（如/whitelist/entries, /login/log）"
+msgstr ""
+
+#: templates/api_docs.html:95 templates/tokens.html:131
+msgid "删除权限"
+msgstr ""
+
+#: templates/api_docs.html:95
+msgid "：允许调用DELETE接口"
+msgstr ""
+
+#: templates/api_docs.html:96 templates/tokens.html:140
+msgid "管理权限"
+msgstr ""
+
+#: templates/api_docs.html:96
+msgid "：允许系统管理操作"
+msgstr ""
+
+#: templates/api_docs.html:99
+msgid "认证方式1：HTTP Header（推荐）"
+msgstr ""
+
+#: templates/api_docs.html:102
+msgid "认证方式2：查询参数"
+msgstr ""
+
+#: templates/api_docs.html:105 templates/api_docs.html:312
+msgid "错误响应："
+msgstr ""
+
+#: templates/api_docs.html:131
+msgid "无需Token"
+msgstr ""
+
+#: templates/api_docs.html:135
+msgid "检查API服务状态，无需Token认证。server_id为必填参数，同时用作服务器心跳上报。"
+msgstr ""
+
+#: templates/api_docs.html:138 templates/api_docs.html:179
+#: templates/api_docs.html:363
+msgid "查询参数："
+msgstr ""
+
+#: templates/api_docs.html:140 templates/api_docs.html:183
+#: templates/api_docs.html:345 templates/api_docs.html:367
+msgid "参数"
+msgstr ""
+
+#: templates/api_docs.html:140 templates/api_docs.html:184
+#: templates/dashboard.html:267 templates/whitelist.html:50
+#: templates/whitelist.html:191 templates/whitelist.html:248
+msgid "类型"
+msgstr ""
+
+#: templates/api_docs.html:140 templates/api_docs.html:185
+#: templates/api_docs.html:346 templates/api_docs.html:368
+msgid "说明"
+msgstr ""
+
+#: templates/api_docs.html:142 templates/api_docs.html:192
+#: templates/api_docs.html:374
+msgid "服务器ID（必需）"
+msgstr ""
+
+#: templates/api_docs.html:148 templates/api_docs.html:204
+#: templates/api_docs.html:279 templates/api_docs.html:381
+#: templates/api_docs.html:427 templates/api_docs.html:481
+#: templates/api_docs.html:536 templates/api_docs.html:576
+msgid "请求示例："
+msgstr ""
+
+#: templates/api_docs.html:153 templates/api_docs.html:214
+#: templates/api_docs.html:293 templates/api_docs.html:387
+#: templates/api_docs.html:442 templates/api_docs.html:494
+#: templates/api_docs.html:550 templates/api_docs.html:582
+msgid "成功响应："
+msgstr ""
+
+#: templates/api_docs.html:172
+msgid "需要读取权限"
+msgstr ""
+
+#: templates/api_docs.html:176
+msgid "获取指定服务器的所有白名单条目。需要Token具有读取权限。"
+msgstr ""
+
+#: templates/api_docs.html:197
+msgid "是否只返回活跃条目（默认: true）"
+msgstr ""
+
+#: templates/api_docs.html:205
+msgid "使用Header认证"
+msgstr ""
+
+#: templates/api_docs.html:209
+msgid "或使用查询参数"
+msgstr ""
+
+#: templates/api_docs.html:254 templates/api_docs.html:403
+#: templates/api_docs.html:459
+msgid "需要写入权限"
+msgstr ""
+
+#: templates/api_docs.html:258
+msgid "添加新的白名单条目。需要Token具有写入权限。"
+msgstr ""
+
+#: templates/api_docs.html:261 templates/api_docs.html:410
+#: templates/api_docs.html:466
+msgid "请求头："
+msgstr ""
+
+#: templates/api_docs.html:266 templates/api_docs.html:415
+#: templates/api_docs.html:471 templates/api_docs.html:524
+msgid "请求体："
+msgstr ""
+
+#: templates/api_docs.html:334
+msgid "需要删除权限"
+msgstr ""
+
+#: templates/api_docs.html:338
+msgid "删除指定的白名单条目。需要Token具有删除权限。"
+msgstr ""
+
+#: templates/api_docs.html:341
+msgid "路径参数："
+msgstr ""
+
+#: templates/api_docs.html:352
+msgid "条目类型（必需：name, uuid, ip）"
+msgstr ""
+
+#: templates/api_docs.html:356
+msgid "条目值（必需）"
+msgstr ""
+
+#: templates/api_docs.html:401
+msgid "记录登录事件"
+msgstr ""
+
+#: templates/api_docs.html:407
+msgid "记录Minecraft玩家登录事件。需要Token具有写入权限。"
+msgstr ""
+
+#: templates/api_docs.html:463
+msgid "记录Minecraft玩家登出事件，自动计算在线时长。需要Token具有写入权限。"
+msgstr ""
+
+#: templates/api_docs.html:506 templates/api_docs.html:510
+msgid "Token管理API"
+msgstr ""
+
+#: templates/api_docs.html:517
+msgid "注意："
+msgstr ""
+
+#: templates/api_docs.html:517
+msgid "Token管理API需要通过Web界面管理员登录后才能使用。"
+msgstr ""
+
+#: templates/api_docs.html:521
+msgid "创建新的API Token（需要Web管理员登录）。"
+msgstr ""
+
+#: templates/api_docs.html:573
+msgid "验证Token有效性。"
+msgstr ""
+
+#: templates/api_docs.html:606
+msgid "使用示例"
+msgstr ""
+
+#: templates/api_docs.html:610
+msgid "完整使用示例"
+msgstr ""
+
+#: templates/api_docs.html:614
+msgid "Python示例："
+msgstr ""
+
+#: templates/api_docs.html:669
+msgid "Shell脚本示例："
+msgstr ""
+
+#: templates/api_docs.html:710
+msgid "回到顶部按钮"
+msgstr ""
+
+#: templates/api_docs.html:719
+msgid "平滑滚动到锚点"
+msgstr ""
+
+#: templates/api_docs.html:736
+msgid "回到顶部"
+msgstr ""
+
+#: templates/api_docs.html:744
+msgid "高亮当前查看的部分"
+msgstr ""
+
+#: templates/dashboard.html:3
+msgid "仪表板"
+msgstr ""
+
+#: templates/dashboard.html:4 templates/layout.html:36
+msgid "仪表盘"
+msgstr ""
+
+#: templates/dashboard.html:64
+msgid "白名单"
+msgstr ""
+
+#: templates/dashboard.html:66
+msgid "总条目数"
+msgstr ""
+
+#: templates/auth/profile.html:35 templates/dashboard.html:75
+#: templates/dashboard.html:285 templates/tokens.html:45
+#: templates/tokens.html:236 templates/whitelist.html:320
+msgid "活跃"
+msgstr ""
+
+#: templates/dashboard.html:84 templates/tokens.html:234
+#: templates/whitelist.html:309
+msgid "已过期"
+msgstr ""
+
+#: templates/dashboard.html:98 templates/dashboard.html:269
+#: templates/login_logs.html:37 templates/login_logs.html:96
+#: templates/whitelist.html:60 templates/whitelist.html:250
+msgid "服务器"
+msgstr ""
+
+#: templates/dashboard.html:100
+msgid "活跃服务器数"
+msgstr ""
+
+#: templates/dashboard.html:114
+msgid "更多"
+msgstr ""
+
+#: templates/dashboard.html:128 templates/layout.html:63
+#: templates/login_logs.html:3 templates/login_logs.html:4
+#: templates/login_logs.html:15
+msgid "登陆日志"
+msgstr ""
+
+#: templates/dashboard.html:130
+msgid "总登陆次数"
+msgstr ""
+
+#: templates/dashboard.html:138
+msgid "今日"
+msgstr ""
+
+#: templates/dashboard.html:142 templates/login_logs.html:52
+#: templates/login_logs.html:113 templates/whitelist.html:290
+msgid "允许"
+msgstr ""
+
+#: templates/dashboard.html:146 templates/login_logs.html:58
+#: templates/login_logs.html:115 templates/whitelist.html:290
+msgid "拒绝"
+msgstr ""
+
+#: templates/dashboard.html:160
+msgid "用户"
+msgstr ""
+
+#: templates/dashboard.html:162
+msgid "系统用户数"
+msgstr ""
+
+#: templates/dashboard.html:170
+msgid "日志总数"
+msgstr ""
+
+#: templates/dashboard.html:175 templates/dashboard.html:417
+#: templates/logs.html:32 templates/settings.html:79
+msgid "信息"
+msgstr ""
+
+#: templates/dashboard.html:179 templates/dashboard.html:417
+#: templates/logs.html:34 templates/settings.html:81
+msgid "错误"
+msgstr ""
+
+#: templates/dashboard.html:193
+msgid "登陆趋势（近7天）"
+msgstr ""
+
+#: templates/dashboard.html:194
+msgid "总登陆"
+msgstr ""
+
+#: templates/dashboard.html:208
+msgid "日志级别分布"
+msgstr ""
+
+#: templates/dashboard.html:225
+msgid "快速操作"
+msgstr ""
+
+#: templates/dashboard.html:230
+msgid "添加白名单条目"
+msgstr ""
+
+#: templates/dashboard.html:233
+msgid "查看系统日志"
+msgstr ""
+
+#: templates/dashboard.html:236
+msgid "查看登陆日志"
+msgstr ""
+
+#: templates/dashboard.html:243 templates/layout.html:82
+#: templates/settings.html:4
+msgid "系统设置"
+msgstr ""
+
+#: templates/dashboard.html:258
+msgid "最近添加的白名单"
+msgstr ""
+
+#: templates/dashboard.html:259
+msgid "查看全部"
+msgstr ""
+
+#: templates/dashboard.html:268 templates/whitelist.html:201
+#: templates/whitelist.html:249
+msgid "值"
+msgstr ""
+
+#: templates/dashboard.html:270 templates/whitelist.html:252
+msgid "创建者"
+msgstr ""
+
+#: templates/dashboard.html:271 templates/login_logs.html:92
+#: templates/logs.html:130
+msgid "时间"
+msgstr ""
+
+#: templates/dashboard.html:296 templates/whitelist.html:394
+msgid "暂无白名单条目"
+msgstr ""
+
+#: templates/dashboard.html:297
+msgid "添加第一个条目"
+msgstr ""
+
+#: templates/dashboard.html:417 templates/logs.html:33
+#: templates/settings.html:80
+msgid "警告"
+msgstr ""
+
+#: templates/dashboard.html:417
+msgid "登陆"
+msgstr ""
+
+#: templates/layout.html:6
+msgid "CWhitelist"
+msgstr ""
+
+#: templates/layout.html:45 templates/whitelist.html:3
+#: templates/whitelist.html:4 templates/whitelist.html:35
+msgid "白名单管理"
+msgstr ""
+
+#: templates/layout.html:54 templates/logs.html:3 templates/logs.html:4
+#: templates/logs.html:18
+msgid "系统日志"
+msgstr ""
+
+#: templates/layout.html:91 templates/settings.html:20
+#: templates/settings_timezone.html:20 templates/tokens.html:20
+msgid "常规设置"
+msgstr ""
+
+#: templates/layout.html:98 templates/settings.html:23
+#: templates/settings_timezone.html:3 templates/settings_timezone.html:4
+#: templates/settings_timezone.html:9 templates/settings_timezone.html:23
+#: templates/tokens.html:23
+msgid "时区设置"
+msgstr ""
+
+#: templates/layout.html:133
+msgid "收起侧边栏"
+msgstr ""
+
+#: templates/auth/profile.html:3 templates/auth/profile.html:4
+#: templates/auth/profile.html:9 templates/layout.html:192
+msgid "个人资料"
+msgstr ""
+
+#: templates/layout.html:198
+msgid "退出登录"
+msgstr ""
+
+#: templates/auth/login.html:6 templates/auth/login.html:129
+#: templates/layout.html:205
+msgid "登录"
+msgstr ""
+
+#: templates/login_logs.html:20 templates/logs.html:23
+#: templates/whitelist.html:46
+msgid "筛选表单"
+msgstr ""
+
+#: templates/login_logs.html:28
+msgid "搜索玩家..."
+msgstr ""
+
+#: templates/login_logs.html:47
+msgid "事件类型"
+msgstr ""
+
+#: templates/login_logs.html:69 templates/logs.html:59
+#: templates/whitelist.html:86
+msgid "筛选"
+msgstr ""
+
+#: templates/login_logs.html:79 templates/logs.html:117 templates/logs.html:121
+msgid "日志列表"
+msgstr ""
+
+#: templates/login_logs.html:83
+msgid "登陆记录"
+msgstr ""
+
+#: templates/login_logs.html:84 templates/logs.html:122
+#: templates/whitelist.html:240
+#, python-format
+msgid "%(total)s 条记录"
+msgstr ""
+
+#: templates/login_logs.html:93
+msgid "玩家名称"
+msgstr ""
+
+#: templates/login_logs.html:94
+msgid "玩家UUID"
+msgstr ""
+
+#: templates/login_logs.html:95 templates/logs.html:134
+msgid "IP地址"
+msgstr ""
+
+#: templates/login_logs.html:97
+msgid "结果"
+msgstr ""
+
+#: templates/login_logs.html:98 templates/logs.html:135
+msgid "详情"
+msgstr ""
+
+#: templates/login_logs.html:107 templates/logs.html:151
+msgid "本地登陆"
+msgstr ""
+
+#: templates/login_logs.html:125 templates/logs.html:157
+msgid "查看"
+msgstr ""
+
+#: templates/login_logs.html:128 templates/logs.html:160
+msgid "详情模态框"
+msgstr ""
+
+#: templates/login_logs.html:133
+msgid "登陆详情"
+msgstr ""
+
+#: templates/login_logs.html:152 templates/logs.html:184
+#: templates/tokens.html:273 templates/whitelist.html:350
+msgid "分页"
+msgstr ""
+
+#: templates/login_logs.html:158 templates/logs.html:190
+#: templates/whitelist.html:357
+msgid "上一页"
+msgstr ""
+
+#: templates/login_logs.html:180 templates/logs.html:212
+#: templates/whitelist.html:383
+msgid "下一页"
+msgstr ""
+
+#: templates/login_logs.html:189
+msgid "暂无登陆记录"
+msgstr ""
+
+#: templates/logs.html:29 templates/settings.html:77
+msgid "日志级别"
+msgstr ""
+
+#: templates/logs.html:31
+msgid "所有级别"
+msgstr ""
+
+#: templates/logs.html:39 templates/logs.html:132
+msgid "来源"
+msgstr ""
+
+#: templates/logs.html:41
+msgid "所有来源"
+msgstr ""
+
+#: templates/logs.html:42
+msgid "API"
+msgstr ""
+
+#: templates/logs.html:43
+msgid "网页"
+msgstr ""
+
+#: templates/logs.html:44
+msgid "系统"
+msgstr ""
+
+#: templates/logs.html:54
+msgid "忽略健康检查"
+msgstr ""
+
+#: templates/logs.html:63
+msgid "清空日志按钮"
+msgstr ""
+
+#: templates/logs.html:65
+msgid "清空日志"
+msgstr ""
+
+#: templates/logs.html:76
+msgid "统计信息"
+msgstr ""
+
+#: templates/logs.html:80
+msgid "日志级别统计"
+msgstr ""
+
+#: templates/logs.html:89 templates/logs.html:107
+#, python-format
+msgid "%(count)s 条"
+msgstr ""
+
+#: templates/logs.html:100
+msgid "日志来源统计"
+msgstr ""
+
+#: templates/logs.html:131
+msgid "级别"
+msgstr ""
+
+#: templates/logs.html:133
+msgid "消息"
+msgstr ""
+
+#: templates/logs.html:165
+msgid "日志详情"
+msgstr ""
+
+#: templates/logs.html:221
+msgid "暂无日志记录"
+msgstr ""
+
+#: templates/logs.html:229
+msgid "清空日志的隐藏表单"
+msgstr ""
+
+#: templates/logs.html:240
+msgid "简单版本清空日志函数"
+msgstr ""
+
+#: templates/logs.html:242
+msgid "⚠️ 确定要清空所有日志吗？此操作不可撤销！"
+msgstr ""
+
+#: templates/logs.html:242
+#, python-format
+msgid "当前共有 %(total)s 条日志将被删除。"
+msgstr ""
+
+#: templates/logs.html:245
+msgid "清空中..."
+msgstr ""
+
+#: templates/logs.html:254
+msgid "清空日志请求可能已发送，请查看页面刷新后的结果。"
+msgstr ""
+
+#: templates/logs.html:260
+msgid "调试函数：测试清空日志功能"
+msgstr ""
+
+#: templates/logs.html:262
+msgid "测试清空日志功能..."
+msgstr ""
+
+#: templates/logs.html:272
+msgid "响应状态"
+msgstr ""
+
+#: templates/logs.html:273
+msgid "响应URL"
+msgstr ""
+
+#: templates/logs.html:276
+msgid "请求已重定向，请检查控制台查看详细信息。"
+msgstr ""
+
+#: templates/logs.html:277
+msgid "重定向到"
+msgstr ""
+
+#: templates/logs.html:280
+msgid "响应内容"
+msgstr ""
+
+#: templates/logs.html:281
+msgid "测试完成，请查看控制台。"
+msgstr ""
+
+#: templates/logs.html:286
+msgid "请求失败"
+msgstr ""
+
+#: templates/logs.html:287
+msgid "测试失败"
+msgstr ""
+
+#: templates/logs.html:291
+msgid "添加键盘快捷键 Ctrl+Shift+C 清空日志（仅开发用）"
+msgstr ""
+
+#: templates/logs.html:294
+msgid "使用快捷键清空日志？"
+msgstr ""
+
+#: templates/logs.html:300
+msgid "页面加载时检查日志数量"
+msgstr ""
+
+#: templates/logs.html:307
+#, python-format
+msgid ""
+"<i class=\"bi bi-info-circle me-2\"></i> 当前有 <strong>%(total)s</strong> "
+"条日志记录。"
+msgstr ""
+
+#: templates/oobe.html:6
+msgid "初始设置"
+msgstr ""
+
+#: templates/oobe.html:119
+msgid "系统初始设置向导"
+msgstr ""
+
+#: templates/auth/profile.html:13 templates/oobe.html:126
+msgid "基本信息"
+msgstr ""
+
+#: templates/auth/profile.html:27 templates/oobe.html:130
+msgid "管理员"
+msgstr ""
+
+#: templates/oobe.html:138
+msgid "完成"
+msgstr ""
+
+#: templates/oobe.html:143
+msgid "初始系统设置"
+msgstr ""
+
+#: templates/oobe.html:145
+msgid "站点信息"
+msgstr ""
+
+#: templates/oobe.html:147
+msgid "站点标题"
+msgstr ""
+
+#: templates/oobe.html:149
+msgid "例如：我的白名单系统"
+msgstr ""
+
+#: templates/oobe.html:150
+msgid "这将显示在网页标题和页眉中"
+msgstr ""
+
+#: templates/oobe.html:153
+msgid "管理员信息"
+msgstr ""
+
+#: templates/oobe.html:155
+msgid "管理员邮箱"
+msgstr ""
+
+#: templates/oobe.html:158
+msgid "用于接收系统通知和找回密码"
+msgstr ""
+
+#: templates/oobe.html:163
+msgid "管理员密码"
+msgstr ""
+
+#: templates/oobe.html:165
+msgid "至少8位字符"
+msgstr ""
+
+#: templates/oobe.html:168
+msgid "确认密码"
+msgstr ""
+
+#: templates/oobe.html:170
+msgid "再次输入密码"
+msgstr ""
+
+#: templates/oobe.html:174
+msgid "数据库配置"
+msgstr ""
+
+#: templates/oobe.html:176 templates/settings.html:117
+msgid "数据库类型"
+msgstr ""
+
+#: templates/oobe.html:178
+msgid "SQLite（推荐）"
+msgstr ""
+
+#: templates/oobe.html:184
+msgid "数据库连接URL"
+msgstr ""
+
+#: templates/oobe.html:186
+msgid "例如：mysql://user:password@localhost/cwhitelist"
+msgstr ""
+
+#: templates/oobe.html:188
+msgid "留空将使用默认配置"
+msgstr ""
+
+#: templates/oobe.html:189
+msgid "SQLite: sqlite:///instance/cwhitelist.db"
+msgstr ""
+
+#: templates/oobe.html:190
+msgid "MySQL: mysql://username:password@localhost/dbname"
+msgstr ""
+
+#: templates/oobe.html:191
+msgid "PostgreSQL: postgresql://username:password@localhost/dbname"
+msgstr ""
+
+#: templates/oobe.html:198
+msgid "完成设置"
+msgstr ""
+
+#: templates/oobe.html:204
+msgid "设置完成后，您将使用管理员账号登录系统"
+msgstr ""
+
+#: templates/oobe.html:205
+msgid "可以在系统设置中修改这些配置"
+msgstr ""
+
+#: templates/oobe.html:215
+msgid "显示/隐藏数据库配置"
+msgstr ""
+
+#: templates/oobe.html:225
+msgid "密码验证"
+msgstr ""
+
+#: templates/oobe.html:232
+msgid "两次输入的密码不一致！"
+msgstr ""
+
+#: templates/oobe.html:238
+msgid "密码长度至少8位！"
+msgstr ""
+
+#: templates/settings.html:3 templates/settings.html:9
+msgid "设置"
+msgstr ""
+
+#: templates/settings.html:14 templates/settings_timezone.html:14
+#: templates/tokens.html:14
+msgid "侧边导航"
+msgstr ""
+
+#: templates/settings.html:26 templates/settings_timezone.html:26
+#: templates/tokens.html:3 templates/tokens.html:9 templates/tokens.html:26
+msgid "API Token管理"
+msgstr ""
+
+#: templates/settings.html:35
+msgid "消息提示"
+msgstr ""
+
+#: templates/settings.html:47 templates/settings.html:51
+msgid "基本设置"
+msgstr ""
+
+#: templates/settings.html:61
+msgid "服务器名称"
+msgstr ""
+
+#: templates/settings.html:64
+msgid "用于标识此白名单服务器的名称"
+msgstr ""
+
+#: templates/settings.html:68
+msgid "检查模式"
+msgstr ""
+
+#: templates/settings.html:70
+msgid "白名单模式"
+msgstr ""
+
+#: templates/settings.html:71
+msgid "黑名单模式"
+msgstr ""
+
+#: templates/settings.html:73
+msgid "白名单模式：仅列表中的玩家可登录；黑名单模式：列表中的玩家禁止登录"
+msgstr ""
+
+#: templates/settings.html:86
+msgid "默认语言"
+msgstr ""
+
+#: templates/settings.html:88
+msgid "中文"
+msgstr ""
+
+#: templates/settings.html:89
+msgid "English"
+msgstr ""
+
+#: templates/settings.html:95 templates/settings_timezone.html:117
+msgid "保存设置"
+msgstr ""
+
+#: templates/settings.html:113
+msgid "系统版本"
+msgstr ""
+
+#: templates/settings.html:121 templates/settings_timezone.html:59
+msgid "当前时区"
+msgstr ""
+
+#: templates/settings.html:122 templates/settings_timezone.html:60
+msgid "未设置"
+msgstr ""
+
+#: templates/settings.html:125
+msgid "服务器时间"
+msgstr ""
+
+#: templates/settings_timezone.html:46 templates/settings_timezone.html:50
+msgid "当前时区信息"
+msgstr ""
+
+#: templates/settings_timezone.html:63
+msgid "时区偏移"
+msgstr ""
+
+#: templates/settings_timezone.html:67
+msgid "当前服务器时间"
+msgstr ""
+
+#: templates/settings_timezone.html:76
+msgid "时区设置说明"
+msgstr ""
+
+#: templates/settings_timezone.html:77
+msgid "服务器默认使用UTC时间。您可以通过以下表单设置默认时区，影响所有用户看到的时间显示。"
+msgstr ""
+
+#: templates/settings_timezone.html:85
+msgid "时区设置表单"
+msgstr ""
+
+#: templates/settings_timezone.html:89
+msgid "设置时区"
+msgstr ""
+
+#: templates/settings_timezone.html:99
+msgid "选择时区"
+msgstr ""
+
+#: templates/settings_timezone.html:101
+msgid "-- 请选择时区 --"
+msgstr ""
+
+#: templates/settings_timezone.html:112
+msgid "选择服务器默认时区，所有时间显示将使用此时区"
+msgstr ""
+
+#: templates/tokens.html:32 templates/tokens.html:36
+msgid "Token统计"
+msgstr ""
+
+#: templates/tokens.html:41
+msgid "总数"
+msgstr ""
+
+#: templates/tokens.html:49
+msgid "过期"
+msgstr ""
+
+#: templates/tokens.html:55 templates/tokens.html:59
+msgid "使用说明"
+msgstr ""
+
+#: templates/tokens.html:62
+msgid "API Token用于外部系统调用API接口。创建Token后请妥善保管，Token将只显示一次。"
+msgstr ""
+
+#: templates/tokens.html:70
+msgid "创建Token卡片"
+msgstr ""
+
+#: templates/tokens.html:74
+msgid "创建新Token"
+msgstr ""
+
+#: templates/tokens.html:93 templates/tokens.html:401
+msgid "Token名称"
+msgstr ""
+
+#: templates/tokens.html:95
+msgid "例如: Minecraft服务器API"
+msgstr ""
+
+#: templates/tokens.html:96
+msgid "用于标识Token用途的名称"
+msgstr ""
+
+#: templates/tokens.html:100
+msgid "有效期（天）"
+msgstr ""
+
+#: templates/tokens.html:103
+msgid "设置为0表示永不过期"
+msgstr ""
+
+#: templates/tokens.html:108
+msgid "权限设置"
+msgstr ""
+
+#: templates/tokens.html:115
+msgid "允许读取白名单、日志等数据"
+msgstr ""
+
+#: templates/tokens.html:124
+msgid "允许添加、修改数据"
+msgstr ""
+
+#: templates/tokens.html:133
+msgid "允许删除数据"
+msgstr ""
+
+#: templates/tokens.html:142
+msgid "允许系统管理操作"
+msgstr ""
+
+#: templates/tokens.html:151
+msgid "重要提示："
+msgstr ""
+
+#: templates/tokens.html:151
+msgid "Token创建成功后只会显示一次，请务必立即复制保存。"
+msgstr ""
+
+#: templates/tokens.html:166 templates/tokens.html:170
+msgid "已有Token列表"
+msgstr ""
+
+#: templates/tokens.html:172
+#, python-format
+msgid "%(count)s 个"
+msgstr ""
+
+#: templates/tokens.html:181
+msgid "ID"
+msgstr ""
+
+#: templates/tokens.html:182 templates/whitelist.html:53
+#: templates/whitelist.html:194
+msgid "名称"
+msgstr ""
+
+#: templates/tokens.html:183
+msgid "Token预览"
+msgstr ""
+
+#: templates/tokens.html:184
+msgid "创建时间"
+msgstr ""
+
+#: templates/tokens.html:185 templates/whitelist.html:254
+msgid "过期时间"
+msgstr ""
+
+#: templates/tokens.html:186
+msgid "使用次数"
+msgstr ""
+
+#: templates/tokens.html:188 templates/whitelist.html:256
+msgid "操作"
+msgstr ""
+
+#: templates/tokens.html:198
+msgid "未知用户"
+msgstr ""
+
+#: templates/tokens.html:200
+msgid "权限"
+msgstr ""
+
+#: templates/tokens.html:201
+msgid "读"
+msgstr ""
+
+#: templates/tokens.html:202
+msgid "写"
+msgstr ""
+
+#: templates/tokens.html:203
+msgid "删"
+msgstr ""
+
+#: templates/tokens.html:204
+msgid "管"
+msgstr ""
+
+#: templates/tokens.html:210
+msgid "最后IP"
+msgstr ""
+
+#: templates/tokens.html:210
+msgid "未使用"
+msgstr ""
+
+#: templates/tokens.html:228
+msgid "最后使用"
+msgstr ""
+
+#: templates/tokens.html:260
+#, python-format
+msgid "确定删除Token【%(name)s】吗？此操作不可撤销！"
+msgstr ""
+
+#: templates/tokens.html:309
+msgid "暂无Token"
+msgstr ""
+
+#: templates/tokens.html:310
+msgid "请创建您的第一个API Token"
+msgstr ""
+
+#: templates/tokens.html:316 templates/tokens.html:320
+msgid "API使用指南"
+msgstr ""
+
+#: templates/tokens.html:326
+msgid "HTTP Header方式："
+msgstr ""
+
+#: templates/tokens.html:329
+msgid "示例代码："
+msgstr ""
+
+#: templates/tokens.html:330
+msgid "# 获取白名单数据"
+msgstr ""
+
+#: templates/tokens.html:334
+msgid "# 记录登录事件"
+msgstr ""
+
+#: templates/tokens.html:348
+msgid "安全提醒："
+msgstr ""
+
+#: templates/tokens.html:351
+msgid "重要安全建议："
+msgstr ""
+
+#: templates/tokens.html:353
+msgid "请勿将Token泄露给他人"
+msgstr ""
+
+#: templates/tokens.html:354
+msgid "定期更换Token以增强安全性"
+msgstr ""
+
+#: templates/tokens.html:355
+msgid "根据最小权限原则分配Token权限"
+msgstr ""
+
+#: templates/tokens.html:356
+msgid "废弃的Token请及时删除"
+msgstr ""
+
+#: templates/tokens.html:357
+msgid "在HTTPS环境下使用API"
+msgstr ""
+
+#: templates/tokens.html:361
+msgid "支持的操作："
+msgstr ""
+
+#: templates/tokens.html:365
+msgid "健康检查（无需Token）"
+msgstr ""
+
+#: templates/tokens.html:369
+msgid "同步白名单（需要读取权限）"
+msgstr ""
+
+#: templates/tokens.html:373
+msgid "记录登录事件（需要写入权限）"
+msgstr ""
+
+#: templates/tokens.html:383
+msgid "新Token显示模态框"
+msgstr ""
+
+#: templates/tokens.html:390
+msgid "Token已创建"
+msgstr ""
+
+#: templates/tokens.html:397
+msgid "此Token只会显示一次，请立即复制保存！"
+msgstr ""
+
+#: templates/tokens.html:406
+msgid "API Token"
+msgstr ""
+
+#: templates/tokens.html:410
+msgid "复制"
+msgstr ""
+
+#: templates/tokens.html:417
+msgid "有效期至"
+msgstr ""
+
+#: templates/tokens.html:422
+msgid "已复制"
+msgstr ""
+
+#: templates/tokens.html:424
+msgid "关闭"
+msgstr ""
+
+#: templates/tokens.html:432
+msgid "复制Token"
+msgstr ""
+
+#: templates/tokens.html:436
+msgid "Token已复制到剪贴板！"
+msgstr ""
+
+#: templates/tokens.html:438
+msgid "复制失败"
+msgstr ""
+
+#: templates/tokens.html:439
+msgid "复制失败，请手动复制"
+msgstr ""
+
+#: templates/tokens.html:443
+msgid "关闭Token模态框"
+msgstr ""
+
+#: templates/tokens.html:451
+msgid "页面加载后如果有Token模态框，自动显示"
+msgstr ""
+
+#: templates/tokens.html:461
+msgid "按ESC键关闭模态框"
+msgstr ""
+
+#: templates/whitelist.html:41
+msgid "筛选和操作区域"
+msgstr ""
+
+#: templates/whitelist.html:52
+msgid "所有类型"
+msgstr ""
+
+#: templates/whitelist.html:54 templates/whitelist.html:195
+msgid "UUID"
+msgstr ""
+
+#: templates/whitelist.html:55 templates/whitelist.html:196
+msgid "IP"
+msgstr ""
+
+#: templates/whitelist.html:70
+msgid "搜索"
+msgstr ""
+
+#: templates/whitelist.html:71
+msgid "值或描述"
+msgstr ""
+
+#: templates/whitelist.html:79
+msgid "仅显示活跃"
+msgstr ""
+
+#: templates/whitelist.html:93
+msgid "导入按钮"
+msgstr ""
+
+#: templates/whitelist.html:96
+msgid "导入JSON"
+msgstr ""
+
+#: templates/whitelist.html:99 templates/whitelist.html:441
+msgid "导出JSON"
+msgstr ""
+
+#: templates/whitelist.html:108
+msgid "导入模态框"
+msgstr ""
+
+#: templates/whitelist.html:114
+msgid "从JSON导入白名单"
+msgstr ""
+
+#: templates/whitelist.html:121 templates/whitelist.html:206
+msgid "服务器ID"
+msgstr ""
+
+#: templates/whitelist.html:122 templates/whitelist.html:207
+msgid "选择或输入服务器ID"
+msgstr ""
+
+#: templates/whitelist.html:131
+msgid "选择JSON文件"
+msgstr ""
+
+#: templates/whitelist.html:134
+#, python-brace-format
+msgid ""
+"支持格式: [{\"type\":\"name\",\"value\":\"玩家名\"}, "
+"{\"type\":\"uuid\",\"value\":\"uuid\"}, "
+"{\"type\":\"ip\",\"value\":\"IP地址\"}]"
+msgstr ""
+
+#: templates/whitelist.html:139
+msgid "导入选项"
+msgstr ""
+
+#: templates/whitelist.html:143
+msgid "跳过已存在的条目"
+msgstr ""
+
+#: templates/whitelist.html:149
+msgid "导入为禁用状态"
+msgstr ""
+
+#: templates/whitelist.html:155 templates/whitelist.html:216
+msgid "描述（可选）"
+msgstr ""
+
+#: templates/whitelist.html:156
+msgid "为导入的条目添加统一描述"
+msgstr ""
+
+#: templates/whitelist.html:161
+msgid "JSON格式示例"
+msgstr ""
+
+#: templates/whitelist.html:172
+msgid "开始导入"
+msgstr ""
+
+#: templates/whitelist.html:180
+msgid "添加表单"
+msgstr ""
+
+#: templates/whitelist.html:193
+msgid "选择类型"
+msgstr ""
+
+#: templates/whitelist.html:202
+msgid "例如: PlayerName, uuid, 192.168.1.*"
+msgstr ""
+
+#: templates/whitelist.html:217
+msgid "条目描述"
+msgstr ""
+
+#: templates/whitelist.html:221
+msgid "过期时间（可选）"
+msgstr ""
+
+#: templates/whitelist.html:226
+msgid "添加条目"
+msgstr ""
+
+#: templates/whitelist.html:233 templates/whitelist.html:238
+msgid "白名单列表"
+msgstr ""
+
+#: templates/whitelist.html:251
+msgid "描述"
+msgstr ""
+
+#: templates/whitelist.html:253
+msgid "最后登录"
+msgstr ""
+
+#: templates/whitelist.html:293
+msgid "本地用户"
+msgstr ""
+
+#: templates/whitelist.html:298
+msgid "从未登录"
+msgstr ""
+
+#: templates/whitelist.html:337
+msgid "确定要删除这个条目吗？"
+msgstr ""
+
+#: templates/whitelist.html:395
+msgid "请添加第一个白名单条目"
+msgstr ""
+
+#: templates/whitelist.html:397
+msgid "从JSON导入"
+msgstr ""
+
+#: templates/whitelist.html:406
+msgid "导出模态框"
+msgstr ""
+
+#: templates/whitelist.html:412
+msgid "导出白名单为JSON"
+msgstr ""
+
+#: templates/whitelist.html:418
+msgid "导出选项"
+msgstr ""
+
+#: templates/whitelist.html:422
+msgid "仅导出活跃条目"
+msgstr ""
+
+#: templates/whitelist.html:428
+msgid "包含已过期条目"
+msgstr ""
+
+#: templates/whitelist.html:434
+msgid "导出格式"
+msgstr ""
+
+#: templates/whitelist.html:435
+msgid "导出的JSON文件可以直接用于其他系统或备份。"
+msgstr ""
+
+#: templates/whitelist.html:450
+msgid "导出选项处理"
+msgstr ""
+
+#: templates/whitelist.html:466
+msgid "文件导入预览"
+msgstr ""
+
+#: templates/whitelist.html:477
+#, python-format
+msgid "检测到 %(count)s 个条目"
+msgstr ""
+
+#: templates/whitelist.html:479
+msgid "JSON文件格式不正确，应该是一个数组"
+msgstr ""
+
+#: templates/whitelist.html:482
+msgid "无法解析JSON文件"
+msgstr ""
+
+#: templates/auth/login.html:84
+msgid "闪存消息"
+msgstr ""
+
+#: templates/auth/login.html:102
+msgid "用户名或邮箱"
+msgstr ""
+
+#: templates/auth/login.html:106
+msgid "请输入用户名或邮箱"
+msgstr ""
+
+#: templates/auth/login.html:113
+msgid "密码"
+msgstr ""
+
+#: templates/auth/login.html:117
+msgid "请输入密码"
+msgstr ""
+
+#: templates/auth/login.html:124
+msgid "记住我"
+msgstr ""
+
+#: templates/auth/login.html:138
+msgid "自动消失的警报"
+msgstr ""
+
+#: templates/auth/login.html:147
+msgid "表单提交验证"
+msgstr ""
+
+#: templates/auth/login.html:154
+msgid "请输入用户名或邮箱！"
+msgstr ""
+
+#: templates/auth/login.html:161
+msgid "请输入密码！"
+msgstr ""
+
+#: templates/auth/profile.html:16
+msgid "用户名"
+msgstr ""
+
+#: templates/auth/profile.html:20
+msgid "邮箱"
+msgstr ""
+
+#: templates/auth/profile.html:24
+msgid "角色"
+msgstr ""
+
+#: templates/auth/profile.html:27
+msgid "普通用户"
+msgstr ""
+
+#: templates/auth/profile.html:32
+msgid "账户状态"
+msgstr ""
+
+#: templates/auth/profile.html:40
+msgid "注册时间"
+msgstr ""
+
+#: templates/auth/profile.html:44
+msgid "系统时区"
+msgstr ""
+
+#: templates/auth/profile.html:53
+msgid "时区信息"
+msgstr ""
+
+#: templates/auth/profile.html:55
+msgid "当前系统时间"
+msgstr ""
+
+#: templates/auth/profile.html:56
+msgid "UTC时间"
+msgstr ""
+
