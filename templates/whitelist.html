@@ -93,11 +93,11 @@
                     <!-- {{ _('导入按钮') }} -->
                     <div class="col-md-4 d-flex align-items-end justify-content-end">
                         <button type="button" class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#importModal">
-                            <i class="bi bi-upload me-1"></i>{{ _('导入JSON') }}
+                            <i class="bi bi-download me-1"></i>{{ _('导入JSON') }}
                         </button>
-                        <a href="{{ url_for('web.whitelist') }}" class="btn btn-outline-info">
-                            <i class="bi bi-download me-1"></i>{{ _('导出JSON') }}
-                        </a>
+                        <button type="button" class="btn btn-outline-info" data-bs-toggle="modal" data-bs-target="#exportModal">
+                            <i class="bi bi-upload me-1"></i>{{ _('导出JSON') }}
+                        </button>
                     </div>
                 </div>
             </div>
