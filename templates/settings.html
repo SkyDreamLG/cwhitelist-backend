@@ -64,14 +64,15 @@
                         <div class="form-text">{{ _('用于标识此白名单服务器的名称') }}</div>
                     </div>
 
-                    <div class="mb-3">
+                    <!-- 检查模式暂时隐藏，未完成开发 -->
+                    {# <div class="mb-3">
                         <label for="check_mode" class="form-label">{{ _('检查模式') }}</label>
                         <select class="form-select" id="check_mode" name="check_mode">
                             <option value="whitelist" {% if settings and settings.check_mode == 'whitelist' %}selected{% endif %}>{{ _('白名单模式') }}</option>
                             <option value="blacklist" {% if settings and settings.check_mode == 'blacklist' %}selected{% endif %}>{{ _('黑名单模式') }}</option>
                         </select>
                         <div class="form-text">{{ _('白名单模式：仅列表中的玩家可登录；黑名单模式：列表中的玩家禁止登录') }}</div>
-                    </div>
+                    </div> #}
 
                     <div class="mb-3">
                         <label for="log_level" class="form-label">{{ _('日志级别') }}</label>
@@ -123,7 +124,7 @@
                         </tr>
                         <tr>
                             <th>{{ _('服务器时间') }}</th>
-                            <td>{{ format_datetime(now) }}</td>
+                            <td><span id="liveServerTime">--</span></td>
                         </tr>
                     </tbody>
                 </table>
@@ -131,4 +132,21 @@
         </div>
     </div>
 </div>
+{% block extra_js %}
+<script>
+(function updateTime() {
+    var el = document.getElementById('liveServerTime');
+    if (el) {
+        var now = new Date();
+        el.textContent = now.getFullYear() + '-' +
+            String(now.getMonth()+1).padStart(2,'0') + '-' +
+            String(now.getDate()).padStart(2,'0') + ' ' +
+            String(now.getHours()).padStart(2,'0') + ':' +
+            String(now.getMinutes()).padStart(2,'0') + ':' +
+            String(now.getSeconds()).padStart(2,'0');
+    }
+    setTimeout(updateTime, 1000);
+})();
+</script>
+{% endblock %}
 {% endblock %}

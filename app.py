@@ -88,8 +88,11 @@ login_manager.login_message = _('请先登录以访问此页面')
 # 用户加载函数
 @login_manager.user_loader
 def load_user(user_id):
-    from models.user import User
-    return User.query.get(int(user_id))
+    try:
+        from models.user import User
+        return User.query.get(int(user_id))
+    except Exception:
+        return None
 
 
 # 注册上下文处理器，使时区函数在模板中可用

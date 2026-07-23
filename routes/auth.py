@@ -65,7 +65,7 @@ def login():
 
     # 记录登录成功日志
     log = Log(
-        level='login',
+        level='info',
         message=f'用户登录成功: {username}',
         source='web',
         ip_address=request.remote_addr,

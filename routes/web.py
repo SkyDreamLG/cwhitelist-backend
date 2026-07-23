@@ -101,13 +101,13 @@ def dashboard():
 
     # 服务器数量（白名单 + 登陆日志中不重复的server_id）
     whitelist_servers = set(row[0] for row in db.session.query(WhitelistEntry.server_id).filter(WhitelistEntry.server_id.isnot(None)).distinct().all())
-    log_servers = set(row[0] for row in db.session.query(Log.server_id).filter(Log.server_id.isnot(None), Log.level == 'login').distinct().all())
+    log_servers = set(row[0] for row in db.session.query(Log.server_id).filter(Log.server_id.isnot(None), Log.level == 'login', Log.source == 'api').distinct().all())
     total_servers = len(whitelist_servers | log_servers)
 
-    # 登陆日志统计
-    total_logins = Log.query.filter_by(level='login').count()
+    # 登陆日志统计（仅玩家数据，排除网页登录）
+    total_logins = Log.query.filter_by(level='login', source='api').count()
     today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
-    today_logins = Log.query.filter(Log.level == 'login', Log.created_at >= today).count()
+    today_logins = Log.query.filter(Log.level == 'login', Log.source == 'api', Log.created_at >= today).count()
 
     # 登陆趋势（最近7天）- 区分白名单/游客
     from collections import defaultdict
@@ -119,6 +119,7 @@ def dashboard():
         day_end = day_start + timedelta(days=1)
         day_logs = Log.query.filter(
             Log.level == 'login',
+            Log.source == 'api',
             Log.created_at >= day_start,
             Log.created_at < day_end
         ).all()
@@ -135,6 +136,7 @@ def dashboard():
     # 允许/拒绝统计
     allowed_logins = Log.query.filter(
         Log.level == 'login',
+        Log.source == 'api',
         Log.details.like('%allowed: True%')
     ).count()
     denied_logins = total_logins - allowed_logins
@@ -454,8 +456,8 @@ def login_logs():
     show_logout = request.args.getlist('show_logout')[-1] if request.args.getlist('show_logout') else '1'
     player_search = request.args.get('player_search', '').strip()
 
-    # 构建查询 - 只查 login 级别
-    query = Log.query.filter_by(level='login')
+    # 构建查询 - 只查 login 级别，排除网页登录只显示玩家数据
+    query = Log.query.filter_by(level='login', source='api')
 
     if player_search:
         query = query.filter(Log.player_name.ilike(f'%{player_search}%'))
@@ -482,13 +484,14 @@ def login_logs():
     # 获取所有唯一的 server_id 用于筛选下拉框
     server_ids = db.session.query(Log.server_id).filter(
         Log.server_id.isnot(None),
-        Log.level == 'login'
+        Log.level == 'login',
+        Log.source == 'api'
     ).distinct().all()
     server_ids = [s[0] for s in server_ids if s[0]]
 
-    # 所有玩家名用于搜索下拉
+    # 所有玩家名用于搜索下拉（排除网页登录）
     player_names = [row[0] for row in db.session.query(Log.player_name).filter(
-        Log.player_name.isnot(None), Log.level == 'login'
+        Log.player_name.isnot(None), Log.level == 'login', Log.source == 'api'
     ).distinct().order_by(Log.player_name).all()]
 
     filters = {
@@ -1658,6 +1661,7 @@ def user_analytics():
         Log.player_name, Log.player_uuid
     ).filter(
         Log.level == 'login',
+        Log.source == 'api',
         Log.player_name.isnot(None)
     ).distinct().order_by(Log.player_name).all()
 
@@ -1732,6 +1736,7 @@ def user_analytics():
         day_end = day_start + timedelta(days=1)
         query = Log.query.filter(
             Log.level == 'login',
+            Log.source == 'api',
             Log.created_at >= day_start,
             Log.created_at < day_end
         )
@@ -1762,7 +1767,7 @@ def user_analytics():
     is_player_view = bool(player_name)
 
     all_server_ids = [row[0] for row in db.session.query(Log.server_id).filter(
-        Log.server_id.isnot(None), Log.level == 'login'
+        Log.server_id.isnot(None), Log.level == 'login', Log.source == 'api'
     ).distinct().order_by(Log.server_id).all()]
 
     return render_template('analytics.html',
