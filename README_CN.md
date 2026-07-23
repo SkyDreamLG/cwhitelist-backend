@@ -24,7 +24,7 @@ CWhitelist 后端是一个基于 Flask 的轻量级服务，提供 REST API 用�
 - 基于 Token 的 RESTful API 认证
 - 服务器健康检查与心跳追踪，超时自动离线检测
 - 白名单同步接口（按 server_id 划分，支持 name/uuid/ip）
-- 通过 API 添加/删除白名单条目，均需 server_id 范围限定
+- 通过 API 添加/编辑/删除白名单条目，均需 server_id 范围限定
 - 登入/登出事件上报，自动计算在线时长
 - 玩家数据分析仪表板 — 在线时间图、IP 地理位置、服务器活力排行
 - 管理后台 Web UI，支持国际化（简体中文 / English）
@@ -123,6 +123,19 @@ POST /api/whitelist/entries
   "server_id": "lobby",
   "description": "VIP Player",
   "expires_at": "2026-12-31T23:59:59Z"
+}
+```
+
+### 编辑白名单条目
+```
+PUT /api/whitelist/entries/<entry_id>
+```
+需要 Token（写入权限）。所有字段为可选，仅更新提供的字段。请求体：
+```json
+{
+  "value": "NewPlayerName",
+  "description": "更新描述",
+  "is_active": false
 }
 ```
 

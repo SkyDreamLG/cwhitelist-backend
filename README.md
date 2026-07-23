@@ -24,7 +24,7 @@ A lightweight Flask backend for CWhitelist that exposes a REST API for whitelist
 - RESTful API with token-based authentication
 - Server health check with heartbeat tracking and auto-offline detection
 - Whitelist sync endpoint (server-scoped, supports name/uuid/ip)
-- Add / delete whitelist entries via API with `server_id` scoping
+- Add / edit / delete whitelist entries via API with `server_id` scoping
 - Login / logout event logging with session duration tracking
 - Player analytics dashboard — online time charts, IP geolocation, server vitality rankings
 - Admin web UI with i18n support (简体中文 / English)
@@ -125,6 +125,19 @@ Token required (write permission). Body:
   "server_id": "lobby",
   "description": "VIP Player",
   "expires_at": "2026-12-31T23:59:59Z"
+}
+```
+
+### Update Whitelist Entry
+```
+PUT /api/whitelist/entries/<entry_id>
+```
+Token required (write permission). All fields are optional — only provided fields will be updated. Body:
+```json
+{
+  "value": "NewPlayerName",
+  "description": "Updated description",
+  "is_active": false
 }
 ```
 

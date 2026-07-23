@@ -2241,6 +2241,36 @@ msgstr "Current System Time"
 msgid "UTC时间"
 msgstr "UTC Time"
 
+msgid "编辑"
+msgstr "Edit"
+
+msgid "编辑白名单条目"
+msgstr "Edit Whitelist Entry"
+
+msgid "保存修改"
+msgstr "Save Changes"
+
+msgid "白名单条目已更新"
+msgstr "Whitelist entry updated"
+
+msgid "已存在相同类型、值和服务器ID的条目"
+msgstr "An entry with the same type, value and server ID already exists"
+
+msgid "过期时间（可选，留空表示永不过期）"
+msgstr "Expiration (optional, leave empty for never)"
+
+msgid "编辑白名单"
+msgstr "Edit Whitelist"
+
+msgid "更新已有的白名单条目，支持部分字段更新。需要Token具有写入权限。"
+msgstr "Update an existing whitelist entry with partial field updates. Token with write permission required."
+
+msgid "条目ID（必需，UUID格式）"
+msgstr "Entry ID (required, UUID format)"
+
+msgid "请求体（所有字段可选，仅更新提供的字段）："
+msgstr "Request body (all fields optional, only provided fields will be updated):"
+
 #~ msgid "Token提示"
 #~ msgstr "Token Management"
 

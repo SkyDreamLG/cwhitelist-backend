@@ -276,6 +276,107 @@ def add_whitelist_entry():
         }), 500
 
 
+@api_bp.route('/whitelist/entries/<entry_id>', methods=['PUT'])
+@require_api_auth
+def update_whitelist_entry(entry_id):
+    """更新白名单条目"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                'success': False,
+                'message': 'No data provided'
+            }), 400
+
+        token = getattr(request, 'token', None)
+
+        if token and not token.can_write:
+            return jsonify({
+                'success': False,
+                'message': 'Token does not have write permission'
+            }), 403
+
+        entry = WhitelistEntry.query.get(entry_id)
+        if not entry:
+            return jsonify({
+                'success': False,
+                'message': 'Entry not found'
+            }), 404
+
+        old_data = f'type={entry.type}, value={entry.value}, server_id={entry.server_id}, description={entry.description}'
+
+        if 'type' in data:
+            entry_type = data['type'].lower()
+            if entry_type not in ['name', 'uuid', 'ip']:
+                return jsonify({
+                    'success': False,
+                    'message': 'Invalid type. Must be: name, uuid, or ip'
+                }), 400
+            entry.type = entry_type
+
+        if 'value' in data:
+            entry.value = data['value'].strip()
+
+        if 'server_id' in data:
+            entry.server_id = data['server_id'].strip()
+
+        if 'description' in data:
+            entry.description = data['description']
+
+        if 'is_active' in data:
+            entry.is_active = bool(data['is_active'])
+
+        if 'expires_at' in data:
+            if data['expires_at'] is None:
+                entry.expires_at = None
+            else:
+                try:
+                    entry.expires_at = datetime.fromisoformat(data['expires_at'].replace('Z', '+00:00'))
+                except ValueError:
+                    return jsonify({
+                        'success': False,
+                        'message': 'Invalid expires_at format. Use ISO 8601'
+                    }), 400
+
+        db.session.commit()
+
+        log = Log(
+            level='info',
+            message=f'API更新白名单条目: {entry.type}={entry.value}',
+            source='api',
+            ip_address=request.remote_addr,
+            user_id=token.user_id if token else None,
+            details=f'endpoint: /whitelist/entries/{entry_id}, entry_id: {entry.id}, old: ({old_data}), new: type={entry.type}, value={entry.value}, token: {token.name if token else None}'
+        )
+        db.session.add(log)
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Entry updated successfully',
+            'entry': entry.to_dict()
+        })
+
+    except Exception as e:
+        db.session.rollback()
+
+        log = Log(
+            level='error',
+            message='API更新白名单条目失败',
+            source='api',
+            ip_address=request.remote_addr,
+            details=f'endpoint: /whitelist/entries/{entry_id}, error: {str(e)}'
+        )
+        db.session.add(log)
+        db.session.commit()
+
+        return jsonify({
+            'success': False,
+            'message': 'Internal server error',
+            'error': str(e)
+        }), 500
+
+
 @api_bp.route('/whitelist/entries/<entry_type>/<value>', methods=['DELETE'])
 @require_api_auth  # 添加Token验证
 def delete_whitelist_entry(entry_type, value):

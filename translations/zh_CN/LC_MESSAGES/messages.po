@@ -2165,6 +2165,36 @@ msgstr "当前系统时间"
 msgid "UTC时间"
 msgstr "UTC时间"
 
+msgid "编辑"
+msgstr "编辑"
+
+msgid "编辑白名单条目"
+msgstr "编辑白名单条目"
+
+msgid "保存修改"
+msgstr "保存修改"
+
+msgid "白名单条目已更新"
+msgstr "白名单条目已更新"
+
+msgid "已存在相同类型、值和服务器ID的条目"
+msgstr "已存在相同类型、值和服务器ID的条目"
+
+msgid "过期时间（可选，留空表示永不过期）"
+msgstr "过期时间（可选，留空表示永不过期）"
+
+msgid "编辑白名单"
+msgstr "编辑白名单"
+
+msgid "更新已有的白名单条目，支持部分字段更新。需要Token具有写入权限。"
+msgstr "更新已有的白名单条目，支持部分字段更新。需要Token具有写入权限。"
+
+msgid "条目ID（必需，UUID格式）"
+msgstr "条目ID（必需，UUID格式）"
+
+msgid "请求体（所有字段可选，仅更新提供的字段）："
+msgstr "请求体（所有字段可选，仅更新提供的字段）："
+
 #~ msgid "Token提示"
 #~ msgstr "Token管理"
 

@@ -362,6 +362,84 @@ def toggle_whitelist(entry_id):
     return redirect(url_for('web.whitelist'))
 
 
+@web_bp.route('/whitelist/<entry_id>/edit', methods=['POST'])
+@login_required
+def edit_whitelist(entry_id):
+    """编辑白名单条目"""
+    from utils.timezone import parse_datetime, local_to_utc
+
+    entry = WhitelistEntry.query.get(entry_id)
+    if not entry:
+        flash(_('条目不存在'), 'error')
+        return redirect(url_for('web.whitelist'))
+
+    entry_type = request.form.get('type', '').strip().lower()
+    value = request.form.get('value', '').strip()
+    server_id = request.form.get('server_id', '').strip()
+    description = request.form.get('description', '').strip()
+    expires_at = request.form.get('expires_at', '')
+
+    if not entry_type or not value:
+        flash(_('请填写类型和值'), 'error')
+        return redirect(url_for('web.whitelist'))
+
+    if not server_id:
+        flash(_('请填写服务器ID'), 'error')
+        return redirect(url_for('web.whitelist'))
+
+    if entry_type not in ['name', 'uuid', 'ip']:
+        flash(_('类型必须为: name, uuid 或 ip'), 'error')
+        return redirect(url_for('web.whitelist'))
+
+    # 检查是否与其他条目重复（排除自身）
+    existing = WhitelistEntry.query.filter_by(
+        type=entry_type,
+        value=value,
+        server_id=server_id
+    ).filter(WhitelistEntry.id != entry_id).first()
+
+    if existing:
+        flash(_('已存在相同类型、值和服务器ID的条目'), 'error')
+        return redirect(url_for('web.whitelist'))
+
+    # 记录变更前的值用于日志
+    old_data = f'type={entry.type}, value={entry.value}, server_id={entry.server_id}, description={entry.description}'
+
+    # 更新字段
+    entry.type = entry_type
+    entry.value = value
+    entry.server_id = server_id
+    entry.description = description
+
+    if expires_at:
+        try:
+            local_dt = parse_datetime(expires_at)
+            if local_dt:
+                entry.expires_at = local_to_utc(local_dt)
+        except Exception as e:
+            flash(_('过期时间格式错误: %(error)s') % {'error': str(e)}, 'error')
+            return redirect(url_for('web.whitelist'))
+    else:
+        entry.expires_at = None
+
+    db.session.commit()
+
+    # 记录操作日志
+    log = Log(
+        level='info',
+        message=f'编辑白名单条目: {entry.type}={entry.value}',
+        source='web',
+        ip_address=request.remote_addr,
+        user_id=current_user.id,
+        details=f'entry_id: {entry.id}, old: ({old_data}), new: type={entry.type}, value={entry.value}, server_id={entry.server_id}, description={entry.description}'
+    )
+    db.session.add(log)
+    db.session.commit()
+
+    flash(_('白名单条目已更新'), 'success')
+    return redirect(url_for('web.whitelist'))
+
+
 @web_bp.route('/whitelist/<entry_id>/delete', methods=['POST'])
 @login_required
 def delete_whitelist(entry_id):

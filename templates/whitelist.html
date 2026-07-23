@@ -322,6 +322,16 @@
                                 </td>
                                 <td>
                                     <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-primary btn-edit"
+                                                data-id="{{ entry.id }}"
+                                                data-type="{{ entry.type }}"
+                                                data-value="{{ entry.value }}"
+                                                data-server_id="{{ entry.server_id or '' }}"
+                                                data-description="{{ entry.description or '' }}"
+                                                data-expires_at="{{ entry.expires_at.strftime('%Y-%m-%dT%H:%M') if entry.expires_at else '' }}"
+                                                data-bs-toggle="modal" data-bs-target="#editModal">
+                                            <i class="bi bi-pencil"></i> {{ _('编辑') }}
+                                        </button>
                                         <form method="POST" action="{{ url_for('web.toggle_whitelist', entry_id=entry.id) }}"
                                               style="display: inline;">
                                             <button type="submit" class="btn btn-{{ 'warning' if entry.is_active else 'success' }}">
@@ -403,6 +413,65 @@
     </div>
 </div>
 
+<!-- {{ _('编辑模态框') }} -->
+<div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-pencil me-2"></i>{{ _('编辑白名单条目') }}
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editForm" method="POST" action="">
+                    <div class="mb-3">
+                        <label class="form-label">{{ _('类型') }}</label>
+                        <select class="form-select" name="type" id="edit_type" required>
+                            <option value="">{{ _('选择类型') }}</option>
+                            <option value="name">{{ _('名称') }}</option>
+                            <option value="uuid">{{ _('UUID') }}</option>
+                            <option value="ip">{{ _('IP') }}</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">{{ _('值') }}</label>
+                        <input type="text" class="form-control" name="value" id="edit_value" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">{{ _('服务器ID') }}</label>
+                        <input type="text" class="form-control" name="server_id" id="edit_server_id" required
+                               placeholder="{{ _('选择或输入服务器ID') }}" list="serverIdListEdit" autocomplete="off">
+                        <datalist id="serverIdListEdit">
+                            {% for sid in server_ids %}
+                            <option value="{{ sid }}">
+                            {% endfor %}
+                        </datalist>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">{{ _('描述（可选）') }}</label>
+                        <input type="text" class="form-control" name="description" id="edit_description">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">{{ _('过期时间（可选，留空表示永不过期）') }}</label>
+                        <input type="datetime-local" class="form-control" name="expires_at" id="edit_expires_at">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">{{ _('取消') }}</button>
+                <button type="submit" form="editForm" class="btn btn-primary">
+                    <i class="bi bi-check-circle me-1"></i>{{ _('保存修改') }}
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- {{ _('导出模态框') }} -->
 <div class="modal fade" id="exportModal" tabindex="-1">
     <div class="modal-dialog">
@@ -447,6 +516,29 @@
 
 {% block extra_js %}
 <script>
+    // {{ _('编辑模态框处理') }}
+    document.addEventListener('DOMContentLoaded', function() {
+        const editButtons = document.querySelectorAll('.btn-edit');
+        const editForm = document.getElementById('editForm');
+        const editType = document.getElementById('edit_type');
+        const editValue = document.getElementById('edit_value');
+        const editServerId = document.getElementById('edit_server_id');
+        const editDescription = document.getElementById('edit_description');
+        const editExpiresAt = document.getElementById('edit_expires_at');
+
+        editButtons.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                const entryId = this.getAttribute('data-id');
+                editForm.action = '{{ url_for('web.whitelist') }}/' + entryId + '/edit';
+                editType.value = this.getAttribute('data-type');
+                editValue.value = this.getAttribute('data-value');
+                editServerId.value = this.getAttribute('data-server_id');
+                editDescription.value = this.getAttribute('data-description');
+                editExpiresAt.value = this.getAttribute('data-expires_at');
+            });
+        });
+    });
+
     // {{ _('导出选项处理') }}
     document.addEventListener('DOMContentLoaded', function() {
         const exportActiveOnly = document.getElementById('export_active_only');

@@ -37,6 +37,9 @@
                     <a href="#whitelist-add" class="list-group-item list-group-item-action">
                         <i class="bi bi-plus-circle me-2"></i>{{ _('添加白名单') }}
                     </a>
+                    <a href="#whitelist-update" class="list-group-item list-group-item-action">
+                        <i class="bi bi-pencil me-2"></i>{{ _('编辑白名单') }}
+                    </a>
                     <a href="#whitelist-delete" class="list-group-item list-group-item-action">
                         <i class="bi bi-trash me-2"></i>{{ _('删除白名单') }}
                     </a>
@@ -314,6 +317,99 @@ curl -X GET "{{ request.host_url }}api/whitelist/sync?server_id=lobby&only_activ
 {% raw %}{
   "success": false,
   "message": "Entry already exists"
+}
+
+// 403 Forbidden
+{
+  "success": false,
+  "message": "Token does not have write permission"
+}{% endraw %}</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- {{ _('编辑白名单') }} -->
+        <div id="whitelist-update" class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-pencil me-2"></i>{{ _('编辑白名单') }}
+                </h5>
+                <span class="badge bg-warning">{{ _('需要写入权限') }}</span>
+            </div>
+            <div class="card-body">
+                <h6>PUT /whitelist/entries/&lt;entry_id&gt;</h6>
+                <p>{{ _('更新已有的白名单条目，支持部分字段更新。需要Token具有写入权限。') }}</p>
+
+                <div class="mb-3">
+                    <strong>{{ _('路径参数：') }}</strong>
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th width="30%">{{ _('参数') }}</th>
+                                <th width="70%">{{ _('说明') }}</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><code>entry_id</code></td>
+                                <td>{{ _('条目ID（必需，UUID格式）') }}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="mb-3">
+                    <strong>{{ _('请求头：') }}</strong>
+                    <pre class="bg-light p-3 rounded"><code>Content-Type: application/json</code></pre>
+                </div>
+
+                <div class="mb-3">
+                    <strong>{{ _('请求体（所有字段可选，仅更新提供的字段）：') }}</strong>
+                    <pre class="bg-light p-3 rounded"><code>{% raw %}{
+  "type": "name",              // 可选，可选值: name, uuid, ip
+  "value": "NewPlayerName",    // 可选
+  "server_id": "lobby",        // 可选，服务器ID
+  "description": "Updated",    // 可选
+  "is_active": false,          // 可选，是否启用
+  "expires_at": null           // 可选，ISO 8601格式或null清除过期时间
+}{% endraw %}</code></pre>
+                </div>
+
+                <div class="mb-3">
+                    <strong>{{ _('请求示例：') }}</strong>
+                    <pre class="bg-light p-3 rounded"><code>curl -X PUT "{{ request.host_url }}api/whitelist/entries/550e8400-e29b-41d4-a716-446655440000" \
+  -H "Authorization: Bearer YOUR_TOKEN_HERE" \
+  -H "Content-Type: application/json" \
+  -d '{% raw %}{
+    "description": "Updated description",
+    "is_active": true
+  }{% endraw %}'</code></pre>
+                </div>
+
+                <div class="mb-3">
+                    <strong>{{ _('成功响应：') }}</strong>
+                    <pre class="bg-light p-3 rounded"><code>{% raw %}{
+  "success": true,
+  "message": "Entry updated successfully",
+  "entry": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "type": "name",
+    "value": "PlayerName",
+    "description": "Updated description",
+    "created_by": "admin",
+    "created_at": "2024-01-01T00:00:00Z",
+    "expires_at": null,
+    "is_active": true
+  }
+}{% endraw %}</code></pre>
+                </div>
+
+                <div class="mb-3">
+                    <strong>{{ _('错误响应：') }}</strong>
+                    <pre class="bg-light p-3 rounded"><code>// 404 Not Found
+{% raw %}{
+  "success": false,
+  "message": "Entry not found"
 }
 
 // 403 Forbidden
