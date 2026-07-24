@@ -5,6 +5,7 @@ pytz~=2025.2
 Flask-Login~=0.6.3
 Flask-Migrate~=4.0.5
 Werkzeug~=3.1.5
+Flask-SQLAlchemy~=3.1.1
 SQLAlchemy~=2.0.45
 Flask-Babel~=4.0.0
 Babel~=2.17.0
