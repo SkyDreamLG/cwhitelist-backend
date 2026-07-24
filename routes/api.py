@@ -10,8 +10,10 @@ from models.whitelist import WhitelistEntry
 from models.log import Log
 from models.session import LoginSession
 from models.server_status import ServerStatus
+from models.setting import Setting
 from utils.auth import require_api_auth
 from utils.permissions import Permission
+from utils.helpers import log_msg
 
 api_bp = Blueprint('api', __name__)
 
@@ -37,16 +39,22 @@ def health():
         for s in open_sessions:
             s.close_session(logout_time=now)
 
-    log = Log(
-        level='info',
-        message=f'API健康检查: {server_id}',
-        source='api',
-        ip_address=request.remote_addr,
-        server_id=server_id,
-        details=f'endpoint: /health, method: GET, server_id: {server_id}'
-    )
-    db.session.add(log)
-    db.session.commit()
+    # 根据设置决定是否保存健康检查日志
+    save_health_logs = Setting.get_value('save_health_check_logs', 'true') != 'false'
+    if save_health_logs:
+        log = Log(
+            level='info',
+            message=log_msg(
+                f'API健康检查: {server_id}',
+                f'API Health Check: {server_id}'
+            ),
+            source='api',
+            ip_address=request.remote_addr,
+            server_id=server_id,
+            details=f'endpoint: /health, method: GET, server_id: {server_id}'
+        )
+        db.session.add(log)
+        db.session.commit()
 
     return jsonify({
         'success': True,
@@ -54,7 +62,7 @@ def health():
         'server_id': server_id,
         'timestamp': datetime.utcnow().isoformat(),
         'service': 'CWhitelist API',
-        'version': '2.1.0'
+        'version': '2.2.0'
     })
 
 
@@ -97,7 +105,10 @@ def sync_whitelist():
 
         log = Log(
             level='info',
-            message='API同步白名单数据',
+            message=log_msg(
+                'API同步白名单数据',
+                'API Sync Whitelist Data'
+            ),
             source='api',
             ip_address=request.remote_addr,
             user_id=token.user_id if token else None,
@@ -122,7 +133,10 @@ def sync_whitelist():
     except Exception as e:
         log = Log(
             level='error',
-            message='API同步白名单数据失败',
+            message=log_msg(
+                'API同步白名单数据失败',
+                'API Sync Whitelist Data Failed'
+            ),
             source='api',
             ip_address=request.remote_addr,
             details=f'endpoint: /whitelist/sync, error: {str(e)}'
@@ -210,7 +224,10 @@ def add_whitelist_entry():
 
         log = Log(
             level='info',
-            message='API添加白名单条目',
+            message=log_msg(
+                'API添加白名单条目',
+                'API Add Whitelist Entry'
+            ),
             source='api',
             ip_address=request.remote_addr,
             user_id=token.user_id if token else None,
@@ -231,7 +248,10 @@ def add_whitelist_entry():
 
         log = Log(
             level='error',
-            message='API添加白名单条目失败',
+            message=log_msg(
+                'API添加白名单条目失败',
+                'API Add Whitelist Entry Failed'
+            ),
             source='api',
             ip_address=request.remote_addr,
             details=f'endpoint: /whitelist/entries, error: {str(e)}'
@@ -306,7 +326,10 @@ def update_whitelist_entry(entry_id):
 
         log = Log(
             level='info',
-            message=f'API更新白名单条目: {entry.type}={entry.value}',
+            message=log_msg(
+                f'API更新白名单条目: {entry.type}={entry.value}',
+                f'API Update Whitelist Entry: {entry.type}={entry.value}'
+            ),
             source='api',
             ip_address=request.remote_addr,
             user_id=token.user_id if token else None,
@@ -326,7 +349,10 @@ def update_whitelist_entry(entry_id):
 
         log = Log(
             level='error',
-            message='API更新白名单条目失败',
+            message=log_msg(
+                'API更新白名单条目失败',
+                'API Update Whitelist Entry Failed'
+            ),
             source='api',
             ip_address=request.remote_addr,
             details=f'endpoint: /whitelist/entries/{entry_id}, error: {str(e)}'
@@ -364,7 +390,10 @@ def delete_whitelist_entry(entry_type, value):
         if not entry:
             log = Log(
                 level='warning',
-                message=f'API删除白名单条目失败：条目不存在',
+                message=log_msg(
+                    f'API删除白名单条目失败：条目不存在',
+                    f'API Delete Whitelist Entry Failed: Entry Not Found'
+                ),
                 source='api',
                 ip_address=request.remote_addr,
                 user_id=token.user_id if token else None,
@@ -380,7 +409,10 @@ def delete_whitelist_entry(entry_type, value):
 
         log = Log(
             level='warning',
-            message=f'API删除白名单条目: {entry.type}={entry.value}',
+            message=log_msg(
+                f'API删除白名单条目: {entry.type}={entry.value}',
+                f'API Delete Whitelist Entry: {entry.type}={entry.value}'
+            ),
             source='api',
             ip_address=request.remote_addr,
             user_id=token.user_id if token else None,
@@ -402,7 +434,10 @@ def delete_whitelist_entry(entry_type, value):
 
         log = Log(
             level='error',
-            message='API删除白名单条目失败',
+            message=log_msg(
+                'API删除白名单条目失败',
+                'API Delete Whitelist Entry Failed'
+            ),
             source='api',
             ip_address=request.remote_addr,
             details=f'endpoint: /whitelist/entries/{entry_type}/{value}, error: {str(e)}'
@@ -495,7 +530,10 @@ def log_login():
     except Exception as e:
         log = Log(
             level='error',
-            message='API记录登录事件失败',
+            message=log_msg(
+                'API记录登录事件失败',
+                'API Log Login Event Failed'
+            ),
             source='api',
             ip_address=request.remote_addr,
             details=f'endpoint: /login/log, error: {str(e)}'
@@ -539,7 +577,10 @@ def log_logout():
 
         log = Log(
             level='login',
-            message=f'Player logout: {player_name}',
+            message=log_msg(
+                f'玩家登出: {player_name}',
+                f'Player logout: {player_name}'
+            ),
             source='api',
             ip_address=player_ip,
             player_name=player_name,
@@ -600,7 +641,10 @@ def log_logout():
         db.session.rollback()
         log = Log(
             level='error',
-            message='API记录登出事件失败',
+            message=log_msg(
+                'API记录登出事件失败',
+                'API Log Logout Event Failed'
+            ),
             source='api',
             ip_address=request.remote_addr,
             details=f'endpoint: /login/logout, error: {str(e)}'
@@ -694,24 +738,29 @@ def create_token():
         token_str = secrets.token_hex(32)
         token_hash = generate_password_hash(token_str)
 
+        now = datetime.utcnow()
+
         token = Token(
             token_hash=token_hash,
             name=name,
             user_id=current_user.id,
-            permissions=perms
+            permissions=perms,
+            created_at=now
         )
 
         if days_valid:
-            from utils.timezone import now_utc
             from datetime import timedelta
-            token.expires_at = now_utc() + timedelta(days=days_valid)
+            token.expires_at = now + timedelta(days=days_valid)
 
         db.session.add(token)
         db.session.commit()
 
         log = Log(
             level='info',
-            message=f'创建API Token: {name}',
+            message=log_msg(
+                f'创建API Token: {name}',
+                f'Create API Token: {name}'
+            ),
             source='api',
             ip_address=request.remote_addr,
             user_id=current_user.id,

@@ -136,15 +136,18 @@ class Token(db.Model):
         raw_token = secrets.token_hex(32)
         token_hash = generate_password_hash(raw_token)
 
+        now = datetime.utcnow()
+
         token = cls(
             token_hash=token_hash,
             user_id=user_id,
             name=name,
             permissions=list(permissions or []) if permissions else [],
+            created_at=now
         )
 
         if days_valid and days_valid > 0:
-            token.expires_at = now_utc() + timedelta(days=days_valid)
+            token.expires_at = now + timedelta(days=days_valid)
 
         db.session.add(token)
         db.session.commit()

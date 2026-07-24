@@ -16,6 +16,53 @@ from models.token import Token
 from models.whitelist import WhitelistEntry
 from models.setting import Setting
 from models.log import Log
+from utils.helpers import log_msg
+
+
+def cleanup_old_logs():
+    """清理超过保留时间的日志"""
+    from datetime import timedelta
+
+    try:
+        # 获取系统日志保留天数
+        system_retention_str = Setting.get_value('system_log_retention_days', '0')
+        system_retention_days = int(system_retention_str) if system_retention_str else 0
+
+        # 获取登陆日志保留天数
+        login_retention_str = Setting.get_value('login_log_retention_days', '0')
+        login_retention_days = int(login_retention_str) if login_retention_str else 0
+
+        deleted_system = 0
+        deleted_login = 0
+
+        # 清理系统日志（非login级别）
+        if system_retention_days > 0:
+            cutoff = datetime.utcnow() - timedelta(days=system_retention_days)
+            old_system_logs = Log.query.filter(
+                Log.level != 'login',
+                Log.created_at < cutoff
+            )
+            deleted_system = old_system_logs.count()
+            old_system_logs.delete()
+            db.session.commit()
+
+        # 清理登陆日志（login级别）
+        if login_retention_days > 0:
+            cutoff = datetime.utcnow() - timedelta(days=login_retention_days)
+            old_login_logs = Log.query.filter(
+                Log.level == 'login',
+                Log.created_at < cutoff
+            )
+            deleted_login = old_login_logs.count()
+            old_login_logs.delete()
+            db.session.commit()
+
+        if deleted_system > 0 or deleted_login > 0:
+            print(f"[日志清理] 系统日志: {deleted_system}条, 登陆日志: {deleted_login}条")
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"[日志清理] 清理失败: {e}")
 
 web_bp = Blueprint('web', __name__)
 
@@ -320,7 +367,10 @@ def add_whitelist():
     # 记录操作日志
     log = Log(
         level='info',
-        message=f'添加白名单条目: {entry_type}={value}',
+        message=log_msg(
+            f'添加白名单条目: {entry_type}={value}',
+            f'Add Whitelist Entry: {entry_type}={value}'
+        ),
         source='web',
         ip_address=request.remote_addr,
         user_id=current_user.id,
@@ -348,7 +398,10 @@ def toggle_whitelist(entry_id):
     # 记录操作日志
     log = Log(
         level='info',
-        message=f'切换白名单条目状态: {entry.type}={entry.value} -> {entry.is_active}',
+        message=log_msg(
+            f'切换白名单条目状态: {entry.type}={entry.value} -> {entry.is_active}',
+            f'Toggle Whitelist Entry Status: {entry.type}={entry.value} -> {entry.is_active}'
+        ),
         source='web',
         ip_address=request.remote_addr,
         user_id=current_user.id,
@@ -427,7 +480,10 @@ def edit_whitelist(entry_id):
     # 记录操作日志
     log = Log(
         level='info',
-        message=f'编辑白名单条目: {entry.type}={entry.value}',
+        message=log_msg(
+            f'编辑白名单条目: {entry.type}={entry.value}',
+            f'Edit Whitelist Entry: {entry.type}={entry.value}'
+        ),
         source='web',
         ip_address=request.remote_addr,
         user_id=current_user.id,
@@ -452,7 +508,10 @@ def delete_whitelist(entry_id):
     # 记录操作日志
     log = Log(
         level='warning',
-        message=f'删除白名单条目: {entry.type}={entry.value}',
+        message=log_msg(
+            f'删除白名单条目: {entry.type}={entry.value}',
+            f'Delete Whitelist Entry: {entry.type}={entry.value}'
+        ),
         source='web',
         ip_address=request.remote_addr,
         user_id=current_user.id,
@@ -508,7 +567,10 @@ def batch_whitelist():
 
     log = Log(
         level='warning' if action == 'delete' else 'info',
-        message=f'批量操作白名单: {action} {count}条',
+        message=log_msg(
+            f'批量操作白名单: {action} {count}条',
+            f'Batch Whitelist Operation: {action} {count} entries'
+        ),
         source='web',
         ip_address=request.remote_addr,
         user_id=current_user.id,
@@ -704,7 +766,10 @@ def clear_logs():
         # 记录操作日志
         operation_log = Log(
             level='warning',
-            message=f'管理员清空日志，删除了 {deleted_count} 条记录',
+            message=log_msg(
+                f'管理员清空日志，删除了 {deleted_count} 条记录',
+                f'Admin cleared logs, deleted {deleted_count} entries'
+            ),
             source='web',
             ip_address=request.remote_addr,
             user_id=current_user.id,
@@ -721,6 +786,58 @@ def clear_logs():
         flash(_('清空日志失败: %(error)s') % {'error': str(e)}, 'error')
 
     return redirect(url_for('web.logs'))
+
+
+@web_bp.route('/settings/clear-health-check-logs', methods=['POST'])
+@login_required
+def clear_health_check_logs():
+    """清除健康检查日志"""
+    if not current_user.is_admin():
+        flash(_('需要管理员权限'), 'error')
+        return redirect(url_for('web.settings'))
+
+    try:
+        health_logs = Log.query.filter(Log.details.like('%endpoint: /health%'))
+        total_count = health_logs.count()
+
+        if total_count == 0:
+            flash(_('没有健康检查日志可清除'), 'info')
+            return redirect(url_for('web.settings'))
+
+        # 分批删除
+        deleted = 0
+        batch_size = 500
+        while True:
+            batch = health_logs.limit(batch_size).all()
+            if not batch:
+                break
+            for log_entry in batch:
+                db.session.delete(log_entry)
+            db.session.commit()
+            deleted += len(batch)
+
+        # 记录操作日志
+        op_log = Log(
+            level='warning',
+            message=log_msg(
+                f'管理员清除健康检查日志，删除了 {deleted} 条记录',
+                f'Admin cleared health check logs, deleted {deleted} entries'
+            ),
+            source='web',
+            ip_address=request.remote_addr,
+            user_id=current_user.id,
+            details=f'user: {current_user.username}, cleared_health_checks: {deleted}'
+        )
+        db.session.add(op_log)
+        db.session.commit()
+
+        flash(_('成功清除 %(count)s 条健康检查日志') % {'count': deleted}, 'success')
+
+    except Exception as e:
+        db.session.rollback()
+        flash(_('清除健康检查日志失败: %(error)s') % {'error': str(e)}, 'error')
+
+    return redirect(url_for('web.settings'))
 
 
 @web_bp.route('/settings')
@@ -741,6 +858,9 @@ def settings():
             settings_by_category[category] = []
         settings_by_category[category].append(setting)
 
+    # 构建简单 key->value 映射供模板使用
+    settings_dict = {s.key: s.value for s in settings_list}
+
     # 获取Token统计
     from utils.timezone import now_utc
     total_tokens = Token.query.count()
@@ -752,6 +872,7 @@ def settings():
     ).count()
 
     return render_template('settings.html',
+                           settings=settings_dict,
                            settings_by_category=settings_by_category,
                            token_stats={
                                'total': total_tokens,
@@ -787,7 +908,10 @@ def save_settings():
         # 记录操作日志
         log = Log(
             level='info',
-            message='更新系统设置',
+            message=log_msg(
+                '更新系统设置',
+                'Update System Settings'
+            ),
             source='web',
             ip_address=request.remote_addr,
             user_id=current_user.id
@@ -905,7 +1029,8 @@ def oobe():
             # 设置默认配置
             default_settings = [
                 ('registration_enabled', 'false', '允许用户注册', 'security'),
-                ('log_retention_days', '30', '日志保留天数', 'logging'),
+                ('system_log_retention_days', '0', '系统日志保存天数', 'logging'),
+                ('login_log_retention_days', '0', '登陆日志保存天数', 'logging'),
                 ('max_login_attempts', '5', '最大登录尝试次数', 'security'),
                 ('session_timeout', '60', '会话超时（分钟）', 'security'),
                 ('require_auth', 'true', 'API需要认证', 'security'),
@@ -952,7 +1077,10 @@ def oobe():
             # 6. 记录初始化日志
             log = Log(
                 level='info',
-                message='系统OOBE初始化完成',
+                message=log_msg(
+                    '系统OOBE初始化完成',
+                    'System OOBE Initialization Completed'
+                ),
                 source='system',
                 ip_address=request.remote_addr,
                 details=f'admin_username: {admin_username}, admin_email: {admin_email}, site_title: {site_title}'
@@ -1107,7 +1235,10 @@ def import_whitelist():
         # 记录导入操作日志
         log = Log(
             level='info',
-            message=f'导入白名单数据: {imported_count}条成功，{skipped_count}条跳过，{error_count}条错误',
+            message=log_msg(
+                f'导入白名单数据: {imported_count}条成功，{skipped_count}条跳过，{error_count}条错误',
+                f'Import Whitelist Data: {imported_count} succeeded, {skipped_count} skipped, {error_count} errors'
+            ),
             source='web',
             ip_address=request.remote_addr,
             user_id=current_user.id,
@@ -1172,7 +1303,10 @@ def export_whitelist():
         # 记录导出操作日志
         log = Log(
             level='info',
-            message=f'导出白名单数据: {len(entries)}条',
+            message=log_msg(
+                f'导出白名单数据: {len(entries)}条',
+                f'Export Whitelist Data: {len(entries)} entries'
+            ),
             source='web',
             ip_address=request.remote_addr,
             user_id=current_user.id
@@ -1280,7 +1414,10 @@ def save_timezone():
         # 记录操作日志
         log = Log(
             level='info',
-            message=f'更新系统时区设置: {timezone_str}',
+            message=log_msg(
+                f'更新系统时区设置: {timezone_str}',
+                f'Update System Timezone: {timezone_str}'
+            ),
             source='web',
             ip_address=request.remote_addr,
             user_id=current_user.id,
@@ -1511,19 +1648,20 @@ def create_web_token():
         raw_token = secrets.token_hex(32)
         token_hash_val = generate_password_hash(raw_token)
 
-        from utils.timezone import now_utc
         from datetime import timedelta
 
+        now = datetime.utcnow()
         token = Token(
             token_hash=token_hash_val,
             name=name,
             user_id=current_user.id,
             permissions=selected_perms,
-            is_active=True
+            is_active=True,
+            created_at=now
         )
 
         if days_valid:
-            token.expires_at = now_utc() + timedelta(days=days_valid)
+            token.expires_at = now + timedelta(days=days_valid)
 
         db.session.add(token)
         db.session.commit()
@@ -1544,7 +1682,10 @@ def create_web_token():
         # 记录操作日志
         log = Log(
             level='info',
-            message=f'创建API Token: {name}',
+            message=log_msg(
+                f'创建API Token: {name}',
+                f'Create API Token: {name}'
+            ),
             source='web',
             ip_address=request.remote_addr,
             user_id=current_user.id,
@@ -1582,7 +1723,10 @@ def toggle_token(token_id):
     # 记录操作日志
     log = Log(
         level='info',
-        message=f'切换Token状态: {token.name} ({old_status} -> {token.is_active})',
+        message=log_msg(
+            f'切换Token状态: {token.name} ({old_status} -> {token.is_active})',
+            f'Toggle Token Status: {token.name} ({old_status} -> {token.is_active})'
+        ),
         source='web',
         ip_address=request.remote_addr,
         user_id=current_user.id,
@@ -1616,7 +1760,10 @@ def delete_token(token_id):
     # 记录删除日志
     log = Log(
         level='warning',
-        message=f'删除API Token: {token_name}',
+        message=log_msg(
+            f'删除API Token: {token_name}',
+            f'Delete API Token: {token_name}'
+        ),
         source='web',
         ip_address=request.remote_addr,
         user_id=current_user.id,
@@ -1665,19 +1812,22 @@ def refresh_token(token_id):
         token.token_hash = generate_password_hash(new_raw_token)
 
         # 可选：重置过期时间
-        from utils.timezone import now_utc
         from datetime import timedelta
 
         # 保持原有过期时间或重置为30天后
-        if token.expires_at and token.expires_at < now_utc():
-            token.expires_at = now_utc() + timedelta(days=30)
+        now = datetime.utcnow()
+        if token.expires_at and token.expires_at < now:
+            token.expires_at = now + timedelta(days=30)
 
         db.session.commit()
 
         # 记录操作日志
         log = Log(
             level='info',
-            message=f'刷新API Token: {token.name}',
+            message=log_msg(
+                f'刷新API Token: {token.name}',
+                f'Refresh API Token: {token.name}'
+            ),
             source='web',
             ip_address=request.remote_addr,
             user_id=current_user.id,

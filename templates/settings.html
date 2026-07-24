@@ -58,8 +58,8 @@
                     {% endif %}
 
                     <div class="mb-3">
-                        <label for="server_name" class="form-label">{{ _('服务器名称') }}</label>
-                        <input type="text" class="form-control" id="server_name" name="server_name"
+                        <label for="setting_server_name" class="form-label">{{ _('服务器名称') }}</label>
+                        <input type="text" class="form-control" id="setting_server_name" name="setting_server_name"
                                value="{{ settings.server_name if settings else '' }}" maxlength="64">
                         <div class="form-text">{{ _('用于标识此白名单服务器的名称') }}</div>
                     </div>
@@ -75,8 +75,8 @@
                     </div> #}
 
                     <div class="mb-3">
-                        <label for="log_level" class="form-label">{{ _('日志级别') }}</label>
-                        <select class="form-select" id="log_level" name="log_level">
+                        <label for="setting_log_level" class="form-label">{{ _('日志级别') }}</label>
+                        <select class="form-select" id="setting_log_level" name="setting_log_level">
                             <option value="info" {% if settings and settings.log_level == 'info' %}selected{% endif %}>{{ _('信息') }}</option>
                             <option value="warning" {% if settings and settings.log_level == 'warning' %}selected{% endif %}>{{ _('警告') }}</option>
                             <option value="error" {% if settings and settings.log_level == 'error' %}selected{% endif %}>{{ _('错误') }}</option>
@@ -84,11 +84,42 @@
                     </div>
 
                     <div class="mb-3">
-                        <label for="default_language" class="form-label">{{ _('默认语言') }}</label>
-                        <select class="form-select" id="default_language" name="default_language">
+                        <label for="setting_default_language" class="form-label">{{ _('默认语言') }}</label>
+                        <select class="form-select" id="setting_default_language" name="setting_default_language">
                             <option value="zh_CN" {% if settings and settings.default_language == 'zh_CN' %}selected{% endif %}>{{ _('中文') }}</option>
                             <option value="en" {% if settings and settings.default_language == 'en' %}selected{% endif %}>{{ _('English') }}</option>
                         </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="setting_system_log_retention_days" class="form-label">{{ _('系统日志保存时间') }}</label>
+                        <input type="number" class="form-control" id="setting_system_log_retention_days" name="setting_system_log_retention_days"
+                               value="{{ settings.get('system_log_retention_days', '0') if settings else '0' }}" min="0" max="3650">
+                        <div class="form-text">{{ _('系统日志的保存天数，0表示永久保存') }}</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="setting_login_log_retention_days" class="form-label">{{ _('登陆日志保存时间') }}</label>
+                        <input type="number" class="form-control" id="setting_login_log_retention_days" name="setting_login_log_retention_days"
+                               value="{{ settings.get('login_log_retention_days', '0') if settings else '0' }}" min="0" max="3650">
+                        <div class="form-text">{{ _('登陆日志的保存天数，0表示永久保存') }}</div>
+                    </div>
+
+                    <div class="mb-3 form-check">
+                        <input type="hidden" name="setting_save_health_check_logs" value="false">
+                        <input type="checkbox" class="form-check-input" id="setting_save_health_check_logs" name="setting_save_health_check_logs" value="true"
+                               {% if not settings or settings.get('save_health_check_logs', 'true') != 'false' %}checked{% endif %}>
+                        <label class="form-check-label" for="setting_save_health_check_logs">{{ _('保存健康检查日志') }}</label>
+                        <div class="form-text">{{ _('关闭后将不再保存API健康检查日志，不影响服务器上下线判断') }}</div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="setting_log_language" class="form-label">{{ _('日志语言') }}</label>
+                        <select class="form-select" id="setting_log_language" name="setting_log_language">
+                            <option value="zh_CN" {% if settings and settings.get('log_language', 'zh_CN') == 'zh_CN' %}selected{% endif %}>{{ _('中文') }}</option>
+                            <option value="en" {% if settings and settings.get('log_language', 'zh_CN') == 'en' %}selected{% endif %}>{{ _('English') }}</option>
+                        </select>
+                        <div class="form-text">{{ _('设置保存到数据库的日志消息语言') }}</div>
                     </div>
 
                     <div class="d-grid gap-2 d-md-flex justify-content-md-end">
@@ -96,6 +127,26 @@
                             <i class="bi bi-check-lg me-1"></i> {{ _('保存设置') }}
                         </button>
                     </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- {{ _('日志管理') }} -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-journal-text me-2"></i>{{ _('日志管理') }}
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted">{{ _('清理健康检查产生的日志记录（endpoint: /health），这些日志通常数量庞大且无实际用途。') }}</p>
+                <form method="POST" action="{{ url_for('web.clear_health_check_logs') }}" onsubmit="return confirm('{{ _('确定要清除所有健康检查日志吗？此操作不可撤销。') }}')">
+                    {% if csrf_token %}
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    {% endif %}
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-eraser me-1"></i> {{ _('清除健康检查日志') }}
+                    </button>
                 </form>
             </div>
         </div>

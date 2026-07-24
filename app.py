@@ -230,7 +230,45 @@ def run_flask(host='0.0.0.0', port=5000, debug=False):
         print(f"服务器地址: http://{host}:{port}")
         print("按 Ctrl+C 停止服务器\n")
 
+    # 自动初始化缺失的默认设置（兼容旧版本升级）
+    with app.app_context():
+        try:
+            from models.setting import Setting
+            defaults = [
+                ('system_log_retention_days', '0', '系统日志保存天数', 'logging'),
+                ('login_log_retention_days', '0', '登陆日志保存天数', 'logging'),
+                ('save_health_check_logs', 'true', '是否保存健康检查日志', 'logging'),
+                ('log_language', 'zh_CN', '日志消息语言', 'logging'),
+            ]
+            for key, value, desc, cat in defaults:
+                if Setting.query.filter_by(key=key).first() is None:
+                    Setting.set_value(key, value, desc, cat)
+                    print(f"✓ 已初始化默认设置: {key} = {value}")
+        except Exception as e:
+            print(f"⚠ 初始化默认设置失败: {e}")
+
+    # 启动日志清理调度器
+    start_log_cleanup_scheduler(app)
+
     app.run(host=host, port=port, debug=debug)
+
+
+def start_log_cleanup_scheduler(app):
+    """启动日志清理定时任务，每小时执行一次"""
+    def run_cleanup():
+        interval = 3600  # 每小时
+        while True:
+            time.sleep(interval)
+            try:
+                with app.app_context():
+                    from routes.web import cleanup_old_logs
+                    cleanup_old_logs()
+            except Exception as e:
+                print(f"[日志清理调度器] 执行失败: {e}")
+
+    thread = threading.Thread(target=run_cleanup, daemon=True)
+    thread.start()
+    print("✓ 日志清理调度器已启动（每小时检查一次）")
 
 
 class ConfigWindow:

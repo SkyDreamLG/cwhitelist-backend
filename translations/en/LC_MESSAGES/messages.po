@@ -2848,3 +2848,65 @@ msgstr "Detailed login log records"
 #~ msgid "登录日志-记录"
 #~ msgstr "Login Log"
 
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:97
+msgid "系统日志保存时间"
+msgstr "System Log Retention Days"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:101
+msgid "系统日志的保存天数，0表示永久保存"
+msgstr "Retention days for system logs, 0 means keep forever"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:106
+msgid "登陆日志保存时间"
+msgstr "Login Log Retention Days"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:110
+msgid "登陆日志的保存天数，0表示永久保存"
+msgstr "Retention days for login logs, 0 means keep forever"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:120
+msgid "日志管理"
+msgstr "Log Management"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:126
+msgid "清理健康检查产生的日志记录（endpoint: /health），这些日志通常数量庞大且无实际用途。"
+msgstr "Clear health check log entries (endpoint: /health), these logs are usually massive and serve no practical purpose."
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:127
+msgid "确定要清除所有健康检查日志吗？此操作不可撤销。"
+msgstr "Are you sure you want to clear all health check logs? This action cannot be undone."
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:131
+msgid "清除健康检查日志"
+msgstr "Clear Health Check Logs"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/routes/web.py:786
+msgid "没有健康检查日志可清除"
+msgstr "No health check logs to clear"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/routes/web.py:811
+#, python-format
+msgid "成功清除 %(count)s 条健康检查日志"
+msgstr "Successfully cleared %(count)s health check logs"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/routes/web.py:815
+#, python-format
+msgid "清除健康检查日志失败: %(error)s"
+msgstr "Failed to clear health check logs: %(error)s"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:111
+msgid "保存健康检查日志"
+msgstr "Save Health Check Logs"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:113
+msgid "关闭后将不再保存API健康检查日志，不影响服务器上下线判断"
+msgstr "When disabled, API health check logs will not be saved. Does not affect server online/offline detection"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:117
+msgid "日志语言"
+msgstr "Log Language"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:123
+msgid "设置保存到数据库的日志消息语言"
+msgstr "Set the language of log messages stored in the database"
+

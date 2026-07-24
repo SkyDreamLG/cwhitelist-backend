@@ -1,6 +1,7 @@
 from datetime import datetime
 from .database import db
 from utils.timezone import now_utc
+from utils.helpers import log_msg
 
 
 class Log(db.Model):
@@ -44,7 +45,10 @@ class Log(db.Model):
 
         log = cls(
             level='login',
-            message=f'{player_label} {"allowed" if allowed else "denied"}: {player_name}',
+            message=log_msg(
+                f'{"本地用户" if is_local else "玩家"} {"允许" if allowed else "拒绝"}: {player_name}',
+                f'{player_label} {"allowed" if allowed else "denied"}: {player_name}'
+            ),
             source='api',
             ip_address=player_ip,
             player_name=player_name,

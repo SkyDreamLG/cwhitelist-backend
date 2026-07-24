@@ -2437,3 +2437,65 @@ msgstr ""
 msgid "登录日志-记录"
 msgstr ""
 
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:97
+msgid "系统日志保存时间"
+msgstr ""
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:101
+msgid "系统日志的保存天数，0表示永久保存"
+msgstr ""
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:106
+msgid "登陆日志保存时间"
+msgstr ""
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:110
+msgid "登陆日志的保存天数，0表示永久保存"
+msgstr ""
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:120
+msgid "日志管理"
+msgstr ""
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:126
+msgid "清理健康检查产生的日志记录（endpoint: /health），这些日志通常数量庞大且无实际用途。"
+msgstr ""
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:127
+msgid "确定要清除所有健康检查日志吗？此操作不可撤销。"
+msgstr ""
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:131
+msgid "清除健康检查日志"
+msgstr ""
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/routes/web.py:786
+msgid "没有健康检查日志可清除"
+msgstr ""
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/routes/web.py:811
+#, python-format
+msgid "成功清除 %(count)s 条健康检查日志"
+msgstr ""
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/routes/web.py:815
+#, python-format
+msgid "清除健康检查日志失败: %(error)s"
+msgstr ""
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:111
+msgid "保存健康检查日志"
+msgstr ""
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:113
+msgid "关闭后将不再保存API健康检查日志，不影响服务器上下线判断"
+msgstr ""
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:117
+msgid "日志语言"
+msgstr ""
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/settings.html:123
+msgid "设置保存到数据库的日志消息语言"
+msgstr ""
+

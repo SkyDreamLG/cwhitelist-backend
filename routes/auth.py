@@ -7,6 +7,7 @@ import threading
 from models.database import db
 from models.user import User
 from models.log import Log
+from utils.helpers import log_msg
 
 auth_bp = Blueprint('auth', __name__)
 
@@ -78,7 +79,10 @@ def login():
         # 记录登录失败日志
         log = Log(
             level='warning',
-            message=f'登录失败: 用户名或密码错误 - {username}',
+            message=log_msg(
+                f'登录失败: 用户名或密码错误 - {username}',
+                f'Login Failed: Invalid username or password - {username}'
+            ),
             source='web',
             ip_address=request.remote_addr,
             details=f'username: {username}'
@@ -95,7 +99,10 @@ def login():
         # 记录账户禁用日志
         log = Log(
             level='error',
-            message=f'登录失败: 账户已被禁用 - {username}',
+            message=log_msg(
+                f'登录失败: 账户已被禁用 - {username}',
+                f'Login Failed: Account disabled - {username}'
+            ),
             source='web',
             ip_address=request.remote_addr,
             user_id=user.id,
@@ -114,7 +121,10 @@ def login():
     # 记录登录成功日志
     log = Log(
         level='info',
-        message=f'用户登录成功: {username}',
+        message=log_msg(
+            f'用户登录成功: {username}',
+            f'User Login Success: {username}'
+        ),
         source='web',
         ip_address=request.remote_addr,
         user_id=user.id,
@@ -136,7 +146,10 @@ def logout():
     """退出登录"""
     log = Log(
         level='info',
-        message=f'用户退出登录: {current_user.username}',
+        message=log_msg(
+            f'用户退出登录: {current_user.username}',
+            f'User Logout: {current_user.username}'
+        ),
         source='web',
         ip_address=request.remote_addr,
         user_id=current_user.id

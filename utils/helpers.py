@@ -8,6 +8,15 @@ from models.user import User
 from models.setting import Setting
 
 
+def log_msg(zh, en):
+    """根据日志语言设置返回对应语言的消息，默认中文"""
+    try:
+        lang = Setting.get_value('log_language', 'zh_CN')
+        return zh if lang == 'zh_CN' else en
+    except Exception:
+        return zh
+
+
 def is_oobe_required():
     """检查是否需要OOBE设置"""
     # 检查是否有管理员用户
@@ -51,7 +60,8 @@ def setup_oobe(admin_email, admin_password, site_title, database_type='sqlite', 
         default_settings = [
             ('registration_enabled', 'false', '允许用户注册', 'security'),
             ('require_auth', 'true', 'API需要认证', 'security'),
-            ('log_retention_days', '30', '日志保留天数', 'logging'),
+            ('system_log_retention_days', '0', '系统日志保存天数', 'logging'),
+            ('login_log_retention_days', '0', '登陆日志保存天数', 'logging'),
             ('sync_interval', '5', '同步间隔（分钟）', 'sync'),
             ('max_login_attempts', '5', '最大登录尝试次数', 'security'),
             ('session_timeout', '60', '会话超时（分钟）', 'security'),
