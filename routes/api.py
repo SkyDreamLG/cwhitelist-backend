@@ -1,5 +1,5 @@
 # routes/api.py
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, current_app, request, jsonify
 from datetime import datetime
 import uuid
 import secrets
@@ -14,6 +14,7 @@ from models.setting import Setting
 from utils.auth import require_api_auth
 from utils.permissions import Permission
 from utils.helpers import log_msg
+from utils.async_log import write_log
 
 api_bp = Blueprint('api', __name__)
 
@@ -53,8 +54,7 @@ def health():
             server_id=server_id,
             details=f'endpoint: /health, method: GET, server_id: {server_id}'
         )
-        db.session.add(log)
-        db.session.commit()
+        write_log(log)
 
     return jsonify({
         'success': True,
@@ -62,7 +62,7 @@ def health():
         'server_id': server_id,
         'timestamp': datetime.utcnow().isoformat(),
         'service': 'CWhitelist API',
-        'version': '2.2.0'
+        'version': current_app.config.get('APP_VERSION', '2.3.0')
     })
 
 
@@ -114,8 +114,7 @@ def sync_whitelist():
             user_id=token.user_id if token else None,
             details=str(log_details)
         )
-        db.session.add(log)
-        db.session.commit()
+        write_log(log)
 
         return jsonify({
             'success': True,
@@ -141,8 +140,7 @@ def sync_whitelist():
             ip_address=request.remote_addr,
             details=f'endpoint: /whitelist/sync, error: {str(e)}'
         )
-        db.session.add(log)
-        db.session.commit()
+        write_log(log)
 
         return jsonify({
             'success': False,
@@ -233,8 +231,7 @@ def add_whitelist_entry():
             user_id=token.user_id if token else None,
             details=f'endpoint: /whitelist/entries, type: {entry_type}, value: {value}, entry_id: {entry.id}, token: {token.name if token else None}'
         )
-        db.session.add(log)
-        db.session.commit()
+        write_log(log)
 
         return jsonify({
             'success': True,
@@ -256,8 +253,7 @@ def add_whitelist_entry():
             ip_address=request.remote_addr,
             details=f'endpoint: /whitelist/entries, error: {str(e)}'
         )
-        db.session.add(log)
-        db.session.commit()
+        write_log(log)
 
         return jsonify({
             'success': False,
@@ -335,8 +331,7 @@ def update_whitelist_entry(entry_id):
             user_id=token.user_id if token else None,
             details=f'endpoint: /whitelist/entries/{entry_id}, entry_id: {entry.id}, old: ({old_data}), new: type={entry.type}, value={entry.value}, token: {token.name if token else None}'
         )
-        db.session.add(log)
-        db.session.commit()
+        write_log(log)
 
         return jsonify({
             'success': True,
@@ -357,8 +352,7 @@ def update_whitelist_entry(entry_id):
             ip_address=request.remote_addr,
             details=f'endpoint: /whitelist/entries/{entry_id}, error: {str(e)}'
         )
-        db.session.add(log)
-        db.session.commit()
+        write_log(log)
 
         return jsonify({
             'success': False,
@@ -399,13 +393,15 @@ def delete_whitelist_entry(entry_type, value):
                 user_id=token.user_id if token else None,
                 details=f'endpoint: /whitelist/entries/{entry_type}/{value}, type: {entry_type}, value: {value}, token: {token.name if token else None}'
             )
-            db.session.add(log)
-            db.session.commit()
+            write_log(log)
 
             return jsonify({
                 'success': False,
                 'message': 'Entry not found'
             }), 404
+
+        db.session.delete(entry)
+        db.session.commit()
 
         log = Log(
             level='warning',
@@ -418,10 +414,7 @@ def delete_whitelist_entry(entry_type, value):
             user_id=token.user_id if token else None,
             details=f'endpoint: /whitelist/entries/{entry_type}/{value}, entry_id: {entry.id}, description: {entry.description}, token: {token.name if token else None}'
         )
-        db.session.add(log)
-
-        db.session.delete(entry)
-        db.session.commit()
+        write_log(log)
 
         return jsonify({
             'success': True,
@@ -442,8 +435,7 @@ def delete_whitelist_entry(entry_type, value):
             ip_address=request.remote_addr,
             details=f'endpoint: /whitelist/entries/{entry_type}/{value}, error: {str(e)}'
         )
-        db.session.add(log)
-        db.session.commit()
+        write_log(log)
 
         return jsonify({
             'success': False,
@@ -538,8 +530,7 @@ def log_login():
             ip_address=request.remote_addr,
             details=f'endpoint: /login/log, error: {str(e)}'
         )
-        db.session.add(log)
-        db.session.commit()
+        write_log(log)
 
         return jsonify({
             'success': False,
@@ -649,8 +640,7 @@ def log_logout():
             ip_address=request.remote_addr,
             details=f'endpoint: /login/logout, error: {str(e)}'
         )
-        db.session.add(log)
-        db.session.commit()
+        write_log(log)
 
         return jsonify({
             'success': False,
@@ -766,8 +756,7 @@ def create_token():
             user_id=current_user.id,
             details=f'token_id: {token.id}, permissions: {perms}'
         )
-        db.session.add(log)
-        db.session.commit()
+        write_log(log)
 
         return jsonify({
             'success': True,

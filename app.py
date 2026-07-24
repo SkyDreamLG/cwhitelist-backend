@@ -60,6 +60,15 @@ from models.database import db
 
 db.init_app(app)
 
+# 启用 SQLite WAL 模式（读写并发）
+from sqlalchemy import event
+
+with app.app_context():
+    @event.listens_for(db.engine, "connect")
+    def _set_sqlite_pragma(dbapi_connection, _connection_record):
+        if hasattr(dbapi_connection, 'execute'):
+            dbapi_connection.execute('PRAGMA journal_mode=WAL')
+
 # 初始化数据库迁移
 from flask_migrate import Migrate
 
@@ -199,6 +208,10 @@ def refresh_timezone():
         })
 
 
+# 初始化异步日志写入器
+from utils.async_log import init_async_log_writer
+init_async_log_writer(app)
+
 # 注册蓝图
 from routes.auth import auth_bp
 from routes.api import api_bp
@@ -250,7 +263,8 @@ def run_flask(host='0.0.0.0', port=5000, debug=False):
     # 启动日志清理调度器
     start_log_cleanup_scheduler(app)
 
-    app.run(host=host, port=port, debug=debug)
+    from waitress import serve
+    serve(app, host=host, port=port, threads=8)
 
 
 def start_log_cleanup_scheduler(app):
