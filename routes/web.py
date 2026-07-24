@@ -874,7 +874,7 @@ def settings():
     return render_template('settings.html',
                            settings=settings_dict,
                            settings_by_category=settings_by_category,
-                           version=app.config.get('APP_VERSION', '2.3.0'),
+                           version=current_app.config.get('APP_VERSION', '2.3.0'),
                            token_stats={
                                'total': total_tokens,
                                'active': active_tokens,
@@ -933,14 +933,14 @@ def save_settings():
 def api_docs():
     """API文档"""
     return render_template('api_docs.html',
-                           version=app.config.get('APP_VERSION', '2.3.0'))
+                           version=current_app.config.get('APP_VERSION', '2.3.0'))
 
 
 @web_bp.route('/about')
 def about():
     """关于页面"""
     return render_template('about.html',
-                           version=app.config.get('APP_VERSION', '2.3.0'))
+                           version=current_app.config.get('APP_VERSION', '2.3.0'))
 
 
 @web_bp.route('/oobe', methods=['GET', 'POST'])
