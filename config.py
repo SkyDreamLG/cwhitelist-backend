@@ -58,8 +58,8 @@ class Config:
 
     # API
     API_PREFIX = '/api'
-    API_VERSION = 'v1'
-    APP_VERSION = '2.3.0'
+    API_VERSION = 'v2'
+    APP_VERSION = '2.4.0'
     JSON_SORT_KEYS = False
 
     # 文件上传

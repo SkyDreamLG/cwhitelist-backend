@@ -63,14 +63,17 @@ class ServerStatus(db.Model):
     @classmethod
     def is_server_online(cls, server_id, timeout_seconds=60):
         """检查服务器是否在线"""
-        from datetime import timedelta
+        from datetime import timedelta, timezone
         status = cls.query.filter_by(server_id=server_id).first()
         if not status:
             return False
         if not status.is_online:
             return False
         now = now_utc()
-        return status.last_heartbeat >= now - timedelta(seconds=timeout_seconds)
+        hb = status.last_heartbeat
+        if hb and hb.tzinfo is None:
+            hb = hb.replace(tzinfo=timezone.utc)
+        return hb >= now - timedelta(seconds=timeout_seconds)
 
     def to_dict(self):
         return {

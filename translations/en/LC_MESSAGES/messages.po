@@ -2910,3 +2910,77 @@ msgstr "Log Language"
 msgid "设置保存到数据库的日志消息语言"
 msgstr "Set the language of log messages stored in the database"
 
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/servers.html
+msgid "服务器管理"
+msgstr "Server Management"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/servers.html
+#, python-format
+msgid "共 %(count)s 台服务器"
+msgstr "Total %(count)s servers"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/servers.html
+msgid "在线"
+msgstr "Online"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/servers.html
+msgid "无心跳数据"
+msgstr "No heartbeat data"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/servers.html
+msgid "当前在线"
+msgstr "Currently Online"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/servers.html
+msgid "今日登陆"
+msgstr "Today Logins"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/servers.html
+msgid "在线人数趋势"
+msgstr "Online Players Trend"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/servers.html
+msgid "最后心跳"
+msgstr "Last Heartbeat"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/servers.html
+#, python-format
+msgid "当前在线用户 (%(count)s人)"
+msgstr "Online Users (%(count)s)"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/servers.html
+msgid "当前无在线用户"
+msgstr "No online users"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/servers.html
+msgid "在线人数"
+msgstr "Online Players"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/servers.html
+msgid "人"
+msgstr "players"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/servers.html
+msgid "暂无服务器数据"
+msgstr "No server data"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/servers.html
+msgid "当有服务器通过API上报数据后，将会在此显示。"
+msgstr "Server data will appear here once servers report via API."
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/servers.html
+msgid "白名单条目"
+msgstr "Whitelist Entries"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/servers.html
+msgid "登入时间"
+msgstr "Login Time"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/dashboard.html
+msgid "在线服务器数"
+msgstr "Online Servers"
+
+#: /home/skydream/PycharmProjects/cwhitelist-backend/templates/layout.html
+msgid "服务器管理"
+msgstr "Server Management"
+

@@ -1,0 +1,333 @@
+{% extends "layout.html" %}
+
+{% block title %}{{ _('服务器管理') }}{% endblock %}
+{% block page_title %}{{ _('服务器管理') }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .server-card {
+        border: none;
+        border-radius: 12px;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        margin-bottom: 1.5rem;
+    }
+    .server-card:hover {
+        box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    }
+    .server-card .card-header {
+        background: transparent;
+        border-bottom: 1px solid #f1f5f9;
+        padding: 1rem 1.25rem;
+    }
+    .status-dot {
+        width: 10px; height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 6px;
+    }
+    .status-dot.online { background-color: #10b981; box-shadow: 0 0 6px rgba(16,185,129,0.5); }
+    .status-dot.offline { background-color: #94a3b8; }
+    .stat-mini {
+        text-align: center;
+        padding: 0.5rem;
+    }
+    .stat-mini .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        line-height: 1.2;
+    }
+    .stat-mini .stat-label {
+        font-size: 0.75rem;
+        color: #64748b;
+    }
+    .chart-container {
+        position: relative;
+        height: 200px;
+        width: 100%;
+    }
+    .online-user-link {
+        color: #3b82f6;
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.15s ease;
+    }
+    .online-user-link:hover {
+        color: #1d4ed8;
+        text-decoration: underline;
+    }
+    .time-range-btn {
+        font-size: 0.75rem;
+        padding: 2px 10px;
+    }
+    .time-range-btn.active {
+        font-weight: 600;
+    }
+    .server-name {
+        font-size: 1.1rem;
+        font-weight: 600;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h5 class="mb-1"><i class="bi bi-server me-2"></i>{{ _('服务器管理') }}</h5>
+        <small class="text-muted">{{ _('共 %(count)s 台服务器', count=servers|length) }}</small>
+    </div>
+    <button class="btn btn-sm btn-outline-secondary" onclick="location.reload()">
+        <i class="bi bi-arrow-clockwise me-1"></i>{{ _('刷新') }}
+    </button>
+</div>
+
+{% if servers %}
+    {% for server in servers %}
+    <div class="card server-card shadow-sm" id="server-{{ server.server_id }}">
+        <div class="card-header">
+            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="d-flex align-items-center gap-3">
+                    <span class="server-name">
+                        <i class="bi bi-hdd-stack me-2 text-primary"></i>{{ server.server_name }}
+                    </span>
+                    <span class="badge bg-secondary bg-opacity-10 text-secondary font-monospace small">{{ server.server_id }}</span>
+                    {% if server.is_online %}
+                        <span class="badge bg-success bg-opacity-10 text-success">
+                            <span class="status-dot online"></span>{{ _('在线') }}
+                        </span>
+                    {% else %}
+                        <span class="badge bg-secondary bg-opacity-10 text-secondary">
+                            <span class="status-dot offline"></span>{{ _('离线') }}
+                        </span>
+                    {% endif %}
+                    {% if not server.has_status %}
+                        <span class="badge bg-warning bg-opacity-10 text-warning">{{ _('无心跳数据') }}</span>
+                    {% endif %}
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <div class="btn-group btn-group-sm time-range-btn-group" role="group">
+                        <button type="button" class="btn btn-outline-secondary time-range-btn active" data-server="{{ server.server_id }}" data-hours="6">6h</button>
+                        <button type="button" class="btn btn-outline-secondary time-range-btn" data-server="{{ server.server_id }}" data-hours="12">12h</button>
+                        <button type="button" class="btn btn-outline-secondary time-range-btn" data-server="{{ server.server_id }}" data-hours="24">24h</button>
+                        <button type="button" class="btn btn-outline-secondary time-range-btn" data-server="{{ server.server_id }}" data-hours="72">3d</button>
+                        <button type="button" class="btn btn-outline-secondary time-range-btn" data-server="{{ server.server_id }}" data-hours="168">7d</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- 统计小卡片 -->
+            <div class="row g-3 mb-3">
+                <div class="col-6 col-md-3 d-flex">
+                    <div class="stat-mini bg-success bg-opacity-10 rounded-3 p-3 w-100 d-flex flex-column">
+                        <div class="stat-value text-success">{{ server.online_count }}</div>
+                        <div class="stat-label">{{ _('当前在线') }}</div>
+                        <div class="flex-grow-1"></div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3 d-flex">
+                    <div class="stat-mini bg-primary bg-opacity-10 rounded-3 p-3 w-100 d-flex flex-column">
+                        <div class="stat-value text-primary">{{ server.whitelist_count }}</div>
+                        <div class="stat-label">{{ _('白名单条目') }}</div>
+                        <div class="flex-grow-1"></div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3 d-flex">
+                    <div class="stat-mini bg-info bg-opacity-10 rounded-3 p-3 w-100 d-flex flex-column">
+                        <div class="stat-value text-info">{{ server.total_logins }}</div>
+                        <div class="stat-label">{{ _('总登陆次数') }}</div>
+                        <div class="d-flex justify-content-center gap-2 mt-1">
+                            <small class="text-success">{{ _('允许') }} {{ server.allowed_logins }}</small>
+                            <small class="text-danger">{{ _('拒绝') }} {{ server.denied_logins }}</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-6 col-md-3 d-flex">
+                    <div class="stat-mini bg-warning bg-opacity-10 rounded-3 p-3 w-100 d-flex flex-column">
+                        <div class="stat-value text-warning">{{ server.today_logins }}</div>
+                        <div class="stat-label">{{ _('今日登陆') }}</div>
+                        <div class="flex-grow-1"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 在线人数折线图 -->
+            <div class="mb-3">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <small class="text-muted"><i class="bi bi-graph-up me-1"></i>{{ _('在线人数趋势') }}</small>
+                    {% if server.last_heartbeat %}
+                    <small class="text-muted">{{ _('最后心跳') }}: {{ format_datetime(server.last_heartbeat, '%m-%d %H:%M:%S') }}</small>
+                    {% endif %}
+                </div>
+                <div class="chart-container">
+                    <canvas id="chart-{{ server.server_id }}"></canvas>
+                </div>
+            </div>
+
+            <!-- 当前在线用户列表 -->
+            <div>
+                <small class="text-muted d-block mb-2">
+                    <i class="bi bi-people me-1"></i>
+                    {% if server.online_users %}
+                        {{ _('当前在线用户 (%(count)s人)', count=server.online_users|length) }}
+                    {% else %}
+                        {{ _('当前无在线用户') }}
+                    {% endif %}
+                </small>
+                {% if server.online_users %}
+                <div class="d-flex flex-wrap gap-1">
+                    {% for user in server.online_users %}
+                    <a href="{{ url_for('web.user_analytics', player_name=user.player_name, player_uuid=user.player_uuid) }}"
+                       class="online-user-link badge bg-light text-dark border"
+                       title="{{ _('登入时间') }}: {{ format_datetime(user.login_time, '%Y-%m-%d %H:%M:%S') }} | IP: {{ user.login_ip or '-' }}">
+                        <i class="bi bi-person-circle me-1"></i>{{ user.player_name }}
+                    </a>
+                    {% endfor %}
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="empty-state">
+        <i class="bi bi-server display-3 text-muted mb-3 d-block"></i>
+        <h5 class="text-muted">{{ _('暂无服务器数据') }}</h5>
+        <p class="text-muted">{{ _('当有服务器通过API上报数据后，将会在此显示。') }}</p>
+    </div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+// 存储每个服务器的Chart实例
+const serverCharts = {};
+
+// 颜色方案
+const chartColors = {
+    border: '#3b82f6',
+    bg: 'rgba(59, 130, 246, 0.08)',
+};
+
+async function fetchOnlineHistory(serverId, hours) {
+    try {
+        const resp = await fetch(`/api/servers/${encodeURIComponent(serverId)}/online-history?hours=${hours}`);
+        const result = await resp.json();
+        if (result.success) {
+            return result.data;
+        }
+        console.error('Failed to fetch online history:', result);
+        return [];
+    } catch (e) {
+        console.error('Error fetching online history:', e);
+        return [];
+    }
+}
+
+async function renderChart(serverId, hours) {
+    const data = await fetchOnlineHistory(serverId, hours);
+    const canvasId = `chart-${serverId}`;
+    const canvas = document.getElementById(canvasId);
+    if (!canvas) return;
+
+    const labels = data.map(d => d.time);
+    const values = data.map(d => d.count);
+
+    if (serverCharts[serverId]) {
+        serverCharts[serverId].destroy();
+    }
+
+    const ctx = canvas.getContext('2d');
+    serverCharts[serverId] = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: '{{ _('在线人数') }}',
+                data: values,
+                borderColor: chartColors.border,
+                backgroundColor: chartColors.bg,
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3,
+                pointRadius: 0,
+                pointHitRadius: 8,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: {
+                intersect: false,
+                mode: 'index',
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: '#1e293b',
+                    titleFont: { size: 12 },
+                    bodyFont: { size: 13, weight: 'bold' },
+                    padding: 10,
+                    cornerRadius: 8,
+                    callbacks: {
+                        label: function(ctx) {
+                            return ctx.parsed.y + ' {{ _('人') }}';
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: { display: false },
+                    ticks: {
+                        font: { size: 10 },
+                        color: '#94a3b8',
+                        maxTicksLimit: 12,
+                        maxRotation: 0,
+                    }
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: { color: '#f1f5f9' },
+                    ticks: {
+                        font: { size: 10 },
+                        color: '#94a3b8',
+                        stepSize: 1,
+                        callback: function(v) { return v % 1 === 0 ? v : ''; }
+                    }
+                }
+            }
+        }
+    });
+}
+
+// 初始化所有图表的默认24小时视图
+document.addEventListener('DOMContentLoaded', function() {
+    {% for server in servers %}
+    renderChart('{{ server.server_id }}', 24);
+    {% endfor %}
+
+    // 时间范围按钮点击事件
+    document.querySelectorAll('.time-range-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const serverId = this.dataset.server;
+            const hours = parseInt(this.dataset.hours);
+
+            // 更新active状态
+            const group = this.closest('.time-range-btn-group');
+            group.querySelectorAll('.time-range-btn').forEach(b => b.classList.remove('active'));
+            this.classList.add('active');
+
+            // 重新渲染图表
+            renderChart(serverId, hours);
+        });
+    });
+});
+</script>
+{% endblock %}

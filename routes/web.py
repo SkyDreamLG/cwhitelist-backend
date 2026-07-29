@@ -146,10 +146,18 @@ def dashboard():
         WhitelistEntry.expires_at < datetime.utcnow()
     ).count()
 
-    # 服务器数量（白名单 + 登陆日志中不重复的server_id）
-    whitelist_servers = set(row[0] for row in db.session.query(WhitelistEntry.server_id).filter(WhitelistEntry.server_id.isnot(None)).distinct().all())
-    log_servers = set(row[0] for row in db.session.query(Log.server_id).filter(Log.server_id.isnot(None), Log.level == 'login', Log.source == 'api').distinct().all())
-    total_servers = len(whitelist_servers | log_servers)
+    # 在线服务器数及每服务器在线人数
+    from models.server_status import ServerStatus
+    from models.session import LoginSession
+    all_statuses = ServerStatus.query.all()
+    online_server_count = 0
+    server_online_counts = []
+    for st in all_statuses:
+        if ServerStatus.is_server_online(st.server_id):
+            online_server_count += 1
+        count = LoginSession.query.filter_by(server_id=st.server_id, logout_time=None).count()
+        server_online_counts.append((st.server_id, count, ServerStatus.is_server_online(st.server_id)))
+    server_online_counts.sort(key=lambda x: x[1], reverse=True)
 
     # 登陆日志统计（仅玩家数据，排除网页登录）
     total_logins = Log.query.filter_by(level='login', source='api').count()
@@ -215,7 +223,8 @@ def dashboard():
                            active_entries=active_entries,
                            inactive_entries=inactive_entries,
                            expired_count=expired_count,
-                           total_servers=total_servers,
+                           online_server_count=online_server_count,
+                           server_online_counts=server_online_counts,
                            total_logins=total_logins,
                            today_logins=today_logins,
                            allowed_logins=allowed_logins,
@@ -225,7 +234,6 @@ def dashboard():
                            login_trend_guest=login_trend_guest,
                            log_stats=log_stats,
                            user_count=user_count,
-                           server_entry_counts=server_entry_counts,
                            recent_entries=recent_entries)
 
 
@@ -2083,3 +2091,173 @@ def user_analytics():
                            all_server_ids=all_server_ids,
                            server_id=server_id,
                            is_player_view=is_player_view)
+
+
+@web_bp.route('/servers')
+@login_required
+def servers():
+    """服务器管理页面"""
+    from models.server_status import ServerStatus
+    from models.session import LoginSession
+    from collections import defaultdict
+
+    # 收集所有在白名单和登陆日志中出现过的server_id
+    whitelist_servers = set(row[0] for row in db.session.query(
+        WhitelistEntry.server_id
+    ).filter(WhitelistEntry.server_id.isnot(None)).distinct().all())
+
+    log_servers = set(row[0] for row in db.session.query(
+        Log.server_id
+    ).filter(
+        Log.server_id.isnot(None),
+        Log.level == 'login',
+        Log.source == 'api'
+    ).distinct().all())
+
+    all_server_ids = sorted(whitelist_servers | log_servers)
+
+    # 获取每个服务器的详细信息
+    server_list = []
+    for sid in all_server_ids:
+        # 在线状态
+        status = ServerStatus.query.filter_by(server_id=sid).first()
+        is_online = ServerStatus.is_server_online(sid) if status else False
+
+        # 当前在线用户（LoginSession中logout_time为NULL的记录）
+        online_sessions = LoginSession.query.filter_by(
+            server_id=sid, logout_time=None
+        ).all()
+        online_count = len(online_sessions)
+        online_users = []
+        for s in online_sessions:
+            online_users.append({
+                'player_name': s.player_name,
+                'player_uuid': s.player_uuid,
+                'login_time': s.login_time,
+                'login_ip': s.login_ip,
+            })
+
+        # 白名单条目数
+        whitelist_count = WhitelistEntry.query.filter_by(
+            server_id=sid, is_active=True
+        ).count()
+
+        # 总登陆次数（排除登出事件）
+        total_logins = Log.query.filter(
+            Log.server_id == sid,
+            Log.level == 'login',
+            Log.source == 'api',
+            ~Log.details.like('%action: logout%')
+        ).count()
+
+        # 允许/拒绝统计
+        allowed_logins = Log.query.filter(
+            Log.server_id == sid,
+            Log.level == 'login',
+            Log.source == 'api',
+            Log.details.like('%allowed: True%'),
+            ~Log.details.like('%action: logout%')
+        ).count()
+        denied_logins = total_logins - allowed_logins
+
+        # 今日登陆次数（排除登出事件）
+        today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_logins = Log.query.filter(
+            Log.server_id == sid,
+            Log.level == 'login',
+            Log.source == 'api',
+            Log.created_at >= today,
+            ~Log.details.like('%action: logout%')
+        ).count()
+
+        # 服务器名称（优先使用Server表中的名称，表不存在则用server_id）
+        server_name = sid
+        try:
+            from models.server import Server as ServerModel
+            server_record = ServerModel.query.filter_by(server_id=sid).first()
+            if server_record:
+                server_name = server_record.name
+        except Exception:
+            pass
+
+        server_list.append({
+            'server_id': sid,
+            'server_name': server_name,
+            'is_online': is_online,
+            'last_heartbeat': status.last_heartbeat if status else None,
+            'last_offline': status.last_offline if status else None,
+            'online_count': online_count,
+            'online_users': online_users,
+            'whitelist_count': whitelist_count,
+            'total_logins': total_logins,
+            'allowed_logins': allowed_logins,
+            'denied_logins': denied_logins,
+            'today_logins': today_logins,
+            'has_status': status is not None,
+        })
+
+    return render_template('servers.html', servers=server_list)
+
+
+@web_bp.route('/api/servers/<server_id>/online-history')
+@login_required
+def server_online_history(server_id):
+    """获取服务器在线人数历史数据（用于折线图）"""
+    from models.session import LoginSession
+    from utils.timezone import utc_to_local
+
+    hours = request.args.get('hours', 24, type=int)
+    if hours not in (6, 12, 24, 48, 72, 168):
+        hours = 24
+
+    now = datetime.utcnow()
+    since = now - timedelta(hours=hours)
+
+    def _naive(dt):
+        """将datetime转为naive UTC，兼容aware/naive混合情况"""
+        if dt is None:
+            return None
+        if dt.tzinfo is not None:
+            from datetime import timezone
+            return dt.astimezone(timezone.utc).replace(tzinfo=None)
+        return dt
+
+    # 获取所有可能与时间窗口有交集的会话
+    all_sessions = LoginSession.query.filter(
+        LoginSession.server_id == server_id
+    ).all()
+
+    # 为每个会话提取 (start, end) 区间，fallback login_time -> created_at
+    intervals = []
+    for s in all_sessions:
+        start = _naive(s.login_time) or _naive(s.created_at)
+        if start is None:
+            continue
+        end = _naive(s.logout_time)  # None 表示仍在线
+        intervals.append((start, end))
+
+    # 按采样间隔统计每个时间点的在线人数
+    interval = timedelta(minutes=5)
+    data_points = []
+    t = since
+    while t <= now:
+        count = 0
+        for start, end in intervals:
+            if start <= t and (end is None or end >= t):
+                count += 1
+        local_t = utc_to_local(t)
+        data_points.append({
+            'time': local_t.strftime('%m-%d %H:%M'),
+            'count': count,
+        })
+        t += interval
+
+    hour_labels = {6: '6h', 12: '12h', 24: '24h', 48: '48h', 72: '3d', 168: '7d'}
+
+    return jsonify({
+        'success': True,
+        'server_id': server_id,
+        'hours': hours,
+        'label': hour_labels.get(hours, f'{hours}h'),
+        'data': data_points,
+    })

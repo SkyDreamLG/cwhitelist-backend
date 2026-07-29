@@ -89,29 +89,29 @@
         </div>
     </div>
 
-    <!-- 服务器数量 -->
+    <!-- 在线服务器 -->
     <div class="col-xl-3 col-md-6">
         <div class="card stat-card shadow-sm border-start border-4 border-info h-100">
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-start mb-2">
                     <div>
                         <div class="stat-label mb-1"><i class="bi bi-server me-1"></i>{{ _('服务器') }}</div>
-                        <div class="stat-value text-info">{{ total_servers }}</div>
-                        <div class="stat-label">{{ _('活跃服务器数') }}</div>
+                        <div class="stat-value text-info">{{ online_server_count }}</div>
+                        <div class="stat-label">{{ _('在线服务器数') }}</div>
                     </div>
                     <div class="stat-icon bg-info bg-opacity-10 text-info">
                         <i class="bi bi-hdd-stack"></i>
                     </div>
                 </div>
-                {% if server_entry_counts %}
+                {% if server_online_counts %}
                 <div class="d-flex flex-wrap gap-1 mt-3 pt-3 border-top">
-                    {% for sid, count in server_entry_counts[:6] %}
-                    <span class="server-badge bg-info bg-opacity-10 text-info">
+                    {% for sid, count, is_online in server_online_counts[:6] %}
+                    <span class="server-badge bg-{{ 'success' if is_online else 'secondary' }} bg-opacity-10 text-{{ 'success' if is_online else 'secondary' }}">
                         {{ sid }} <strong>{{ count }}</strong>
                     </span>
                     {% endfor %}
-                    {% if server_entry_counts|length > 6 %}
-                    <span class="stat-sub text-muted">+{{ server_entry_counts|length - 6 }} {{ _('更多') }}</span>
+                    {% if server_online_counts|length > 6 %}
+                    <span class="stat-sub text-muted">+{{ server_online_counts|length - 6 }} {{ _('更多') }}</span>
                     {% endif %}
                 </div>
                 {% endif %}
