@@ -262,6 +262,8 @@ def run_flask(host='0.0.0.0', port=5000, debug=False):
 
     # 启动日志清理调度器
     start_log_cleanup_scheduler(app)
+    # 启动离线检查调度器
+    start_offline_check_scheduler(app)
 
     from waitress import serve
     serve(app, host=host, port=port, threads=8)
@@ -283,6 +285,36 @@ def start_log_cleanup_scheduler(app):
     thread = threading.Thread(target=run_cleanup, daemon=True)
     thread.start()
     print("✓ 日志清理调度器已启动（每小时检查一次）")
+
+
+def start_offline_check_scheduler(app):
+    """启动离线检查定时任务，每分钟检查服务器心跳并关闭离线服务器的玩家会话"""
+    def run_check():
+        interval = 60  # 每分钟
+        while True:
+            time.sleep(interval)
+            try:
+                with app.app_context():
+                    from models.server_status import ServerStatus
+                    from models.session import LoginSession
+                    from datetime import datetime
+
+                    offline_servers = ServerStatus.check_offline(timeout_seconds=60)
+                    if offline_servers:
+                        now = datetime.utcnow()
+                        for sid in offline_servers:
+                            open_sessions = LoginSession.query.filter_by(
+                                server_id=sid, logout_time=None
+                            ).all()
+                            for s in open_sessions:
+                                s.close_session(logout_time=now)
+                        print(f"[离线检查调度器] 已将 {len(offline_servers)} 个离线服务器的玩家会话关闭")
+            except Exception as e:
+                print(f"[离线检查调度器] 执行失败: {e}")
+
+    thread = threading.Thread(target=run_check, daemon=True)
+    thread.start()
+    print("✓ 离线检查调度器已启动（每分钟检查一次）")
 
 
 class ConfigWindow:

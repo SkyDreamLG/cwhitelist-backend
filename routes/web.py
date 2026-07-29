@@ -1197,6 +1197,9 @@ def import_whitelist():
                 value = item['value'].strip()
                 # 支持每个条目独立server_id，fallback到表单值
                 entry_server_id = item.get('server_id', '').strip() or server_id
+                # 支持每个条目的独立描述和激活状态
+                item_description = item.get('description', '').strip()
+                item_is_active = item.get('is_active')
 
                 if not entry_server_id:
                     error_count += 1
@@ -1220,18 +1223,21 @@ def import_whitelist():
 
                 # 创建或更新条目
                 if existing:
-                    # 更新现有条目
-                    existing.description = description or existing.description
-                    existing.is_active = not set_inactive if set_inactive else existing.is_active
+                    # 更新现有条目：优先使用条目中的值，其次使用表单统一值
+                    existing.description = item_description or description or existing.description
+                    if item_is_active is not None:
+                        existing.is_active = item_is_active
+                    elif set_inactive:
+                        existing.is_active = False
                 else:
                     # 创建新条目
                     entry = WhitelistEntry(
                         type=entry_type,
                         value=value,
                         server_id=entry_server_id,
-                        description=description,
+                        description=item_description or description,
                         created_by=current_user.username,
-                        is_active=not set_inactive
+                        is_active=item_is_active if item_is_active is not None else not set_inactive
                     )
                     db.session.add(entry)
 

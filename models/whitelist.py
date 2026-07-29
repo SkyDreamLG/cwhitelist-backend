@@ -1,5 +1,6 @@
 from datetime import datetime
 import uuid
+import pytz
 
 from .database import db
 from utils.timezone import now_utc
@@ -54,7 +55,7 @@ class WhitelistEntry(db.Model):
         """检查是否已过期"""
         from utils.timezone import now_utc
         if self.expires_at:
-            return now_utc() > self.expires_at
+            return now_utc() > self.expires_at.replace(tzinfo=pytz.UTC)
         return False
 
     def __repr__(self):
