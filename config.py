@@ -7,7 +7,12 @@ from pathlib import Path
 # 开关：True=开发环境，False=生产环境
 DEV_MODE = False
 
-_BASE_DIR = Path(__file__).parent
+# PyInstaller 打包后使用 exe 所在目录作为基准路径，确保数据持久化
+import sys as _sys
+if getattr(_sys, 'frozen', False):
+    _BASE_DIR = Path(_sys.executable).parent
+else:
+    _BASE_DIR = Path(__file__).parent
 _INSTANCE_DIR = _BASE_DIR / 'instance'
 _KEY_FILE = _INSTANCE_DIR / 'secret_key'
 
