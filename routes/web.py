@@ -244,6 +244,8 @@ def whitelist():
     # 获取查询参数
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 20, type=int)
+    if per_page <= 0:
+        per_page = 999999  # 显示全部
     entry_type = request.args.get('type', '')
     search = request.args.get('search', '')
     active_only = request.args.get('active_only', 'false')
@@ -301,7 +303,8 @@ def whitelist():
         'type': entry_type,
         'search': search,
         'active_only': active_only_bool,
-        'server_id': server_id
+        'server_id': server_id,
+        'per_page': per_page if per_page != 999999 else 0
     }
 
     # 获取所有唯一的server_id用于下拉菜单

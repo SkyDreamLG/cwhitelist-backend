@@ -28,6 +28,62 @@
 </style>
 {% endblock %}
 
+{% macro pagination_bar(margin_top) %}
+<!-- {{ _('分页') }} -->
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 {{ margin_top }}">
+    <div class="d-flex align-items-center">
+        <label class="form-label me-2 mb-0 text-nowrap">{{ _('每页显示') }}:</label>
+        <select class="form-select form-select-sm" style="width: auto;" onchange="changePerPage(this.value)">
+            {% set current_per_page = filters.get('per_page', 20) %}
+            <option value="10" {% if current_per_page == 10 %}selected{% endif %}>10</option>
+            <option value="20" {% if current_per_page == 20 %}selected{% endif %}>20</option>
+            <option value="50" {% if current_per_page == 50 %}selected{% endif %}>50</option>
+            <option value="100" {% if current_per_page == 100 %}selected{% endif %}>100</option>
+            <option value="0" {% if current_per_page == 0 %}selected{% endif %}>{{ _('全部') }}</option>
+        </select>
+    </div>
+    {% if pagination.pages > 1 %}
+    <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center mb-0">
+            {% if pagination.has_prev %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('web.whitelist', page=pagination.prev_num, **filters) }}">
+                    <i class="bi bi-chevron-left"></i> {{ _('上一页') }}
+                </a>
+            </li>
+            {% endif %}
+
+            {% for page_num in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+                {% if page_num %}
+                    {% if page_num == pagination.page %}
+                    <li class="page-item active">
+                        <span class="page-link">{{ page_num }}</span>
+                    </li>
+                    {% else %}
+                    <li class="page-item">
+                        <a class="page-link" href="{{ url_for('web.whitelist', page=page_num, **filters) }}">{{ page_num }}</a>
+                    </li>
+                    {% endif %}
+                {% else %}
+                    <li class="page-item disabled">
+                        <span class="page-link">...</span>
+                    </li>
+                {% endif %}
+            {% endfor %}
+
+            {% if pagination.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="{{ url_for('web.whitelist', page=pagination.next_num, **filters) }}">
+                    {{ _('下一页') }} <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+</div>
+{% endmacro %}
+
 {% block content %}
 <div class="row">
     <div class="col-md-12">
@@ -46,6 +102,7 @@
                     <!-- {{ _('筛选表单') }} -->
                     <div class="col-md-8">
                         <form method="GET" class="row g-3">
+                            <input type="hidden" name="per_page" value="{{ filters.get('per_page', 20) }}">
                             <div class="col-md-2">
                                 <label class="form-label">{{ _('类型') }}</label>
                                 <select class="form-select" name="type">
@@ -178,7 +235,7 @@
 
 <div class="row">
     <!-- {{ _('添加表单') }} -->
-    <div class="col-md-4 mb-4">
+    <div class="col-md-4 mb-4 sticky-col">
         <div class="card">
             <div class="card-header">
                 <h5 class="card-title mb-0">
@@ -241,6 +298,7 @@
             </div>
             <div class="card-body">
                 {% if entries %}
+                {{ pagination_bar('mb-3') }}
                 <!-- 批量操作栏 -->
                 <div id="batchBar" class="row mb-3" style="display:none;">
                     <div class="col">
@@ -378,46 +436,7 @@
                     </table>
                 </div>
 
-                <!-- {{ _('分页') }} -->
-                {% if pagination.pages > 1 %}
-                <nav aria-label="Page navigation">
-                    <ul class="pagination justify-content-center">
-                        {% if pagination.has_prev %}
-                        <li class="page-item">
-                            <a class="page-link" href="{{ url_for('web.whitelist', page=pagination.prev_num, **filters) }}">
-                                <i class="bi bi-chevron-left"></i> {{ _('上一页') }}
-                            </a>
-                        </li>
-                        {% endif %}
-
-                        {% for page_num in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
-                            {% if page_num %}
-                                {% if page_num == pagination.page %}
-                                <li class="page-item active">
-                                    <span class="page-link">{{ page_num }}</span>
-                                </li>
-                                {% else %}
-                                <li class="page-item">
-                                    <a class="page-link" href="{{ url_for('web.whitelist', page=page_num, **filters) }}">{{ page_num }}</a>
-                                </li>
-                                {% endif %}
-                            {% else %}
-                                <li class="page-item disabled">
-                                    <span class="page-link">...</span>
-                                </li>
-                            {% endif %}
-                        {% endfor %}
-
-                        {% if pagination.has_next %}
-                        <li class="page-item">
-                            <a class="page-link" href="{{ url_for('web.whitelist', page=pagination.next_num, **filters) }}">
-                                {{ _('下一页') }} <i class="bi bi-chevron-right"></i>
-                            </a>
-                        </li>
-                        {% endif %}
-                    </ul>
-                </nav>
-                {% endif %}
+                {{ pagination_bar('mt-3') }}
 
                 {% else %}
                 <div class="text-center py-5">
@@ -537,6 +556,14 @@
 
 {% block extra_js %}
 <script>
+    // 每页显示数量切换
+    function changePerPage(perPage) {
+        const url = new URL(window.location.href);
+        url.searchParams.set('per_page', perPage);
+        url.searchParams.set('page', 1);
+        window.location.href = url.toString();
+    }
+
     // 批量操作
     function toggleAll(el) {
         document.querySelectorAll('.entry-check').forEach(cb => cb.checked = el.checked);

@@ -20,7 +20,7 @@
 
 <div class="row">
     <!-- {{ _('左侧导航') }} -->
-    <div class="col-md-3 mb-4">
+    <div class="col-md-3 mb-4 sticky-col">
         <div class="card">
             <div class="card-body">
                 <h6 class="card-title mb-3">{{ _('API目录') }}</h6>
@@ -803,14 +803,6 @@ log_login "TestPlayer" "12345678-1234-1234-1234-123456789012" "192.168.1.100"</c
     </div>
 </div>
 
-<!-- {{ _('回到顶部按钮') }} -->
-<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1030;">
-    <button class="btn btn-primary rounded-circle p-2" onclick="scrollToTop()"
-            style="width: 50px; height: 50px;">
-        <i class="bi bi-arrow-up"></i>
-    </button>
-</div>
-
 <script>
 // {{ _('平滑滚动到锚点') }}
 document.querySelectorAll('a[href^="#"]').forEach(anchor => {
@@ -828,14 +820,6 @@ document.querySelectorAll('a[href^="#"]').forEach(anchor => {
         }
     });
 });
-
-// {{ _('回到顶部') }}
-function scrollToTop() {
-    window.scrollTo({
-        top: 0,
-        behavior: 'smooth'
-    });
-}
 
 // {{ _('高亮当前查看的部分') }}
 const sections = document.querySelectorAll('div[id]');

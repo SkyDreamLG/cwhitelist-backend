@@ -224,6 +224,30 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 })();
 
+// ==================== 回到顶部按钮 ====================
+document.addEventListener('DOMContentLoaded', function() {
+    var btn = document.getElementById('backToTop');
+    if (!btn) return;
+
+    var threshold = 300;
+
+    function toggleVisibility() {
+        if (window.scrollY > threshold) {
+            btn.classList.add('visible');
+        } else {
+            btn.classList.remove('visible');
+        }
+    }
+
+    window.addEventListener('scroll', toggleVisibility, {passive: true});
+
+    btn.addEventListener('click', function() {
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    });
+
+    toggleVisibility();
+});
+
 // ==================== 全局函数：切换语言 ====================
 function switchLanguage(langCode) {
     fetch('/set-language', {
